@@ -44,7 +44,7 @@ jobs:
       - name: Render dashboard
         env:
           HOMICIDE_DATA_URL: ${{ secrets.HOMICIDE_DATA_URL }}
-        run: Rscript homicide_dashboard_map.R
+        run: Rscript homicide_dashboard_map.r
 
       - name: Commit and push updated dashboard
         run: |
