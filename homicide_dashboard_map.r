@@ -324,7 +324,8 @@ incident_summary_df <- homicides_incidents |>
     Agency = Investigating.Agency,
     Circumstance = Circumstance,
     Latitude = Latitude,
-    Longitude = Longitude
+    Longitude = Longitude,
+    VictimCount = victim_count
   )
 
 incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(i) {
@@ -333,7 +334,8 @@ incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(
     Agency = incident_summary_df$Agency[i],
     Circumstance = incident_summary_df$Circumstance[i],
     Latitude = incident_summary_df$Latitude[i],
-    Longitude = incident_summary_df$Longitude[i]
+    Longitude = incident_summary_df$Longitude[i],
+    VictimCount = incident_summary_df$VictimCount[i]
   )
 })
 
@@ -406,13 +408,18 @@ legend_html <- paste0("
 .leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
 .map-summary-box {
   background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:12px; line-height:1.3; width:150px; max-width:150px;
+  font-size:14px; line-height:1.3; width:170px; max-width:170px;
   word-wrap:break-word; overflow-wrap:break-word; text-align:center;
   transform: scale(0.8); transform-origin: top right;
 }
 .map-summary-box .summary-block-left { text-align:left; }
-.summary-count { font-size:22px; font-weight:bold; }
-.summary-location-note { color:#2c7be5; font-size:11px; margin-bottom:4px; }
+.summary-count { font-size:24px; font-weight:bold; }
+.summary-subcount { font-size:12px; color:#333; margin-top:2px; }
+.summary-location-note { color:#2c7be5; font-size:13px; margin-bottom:4px; }
+.summary-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:2px; }
+.summary-table th { font-size:11px; font-weight:normal; color:#666; text-align:right; }
+.summary-table th:first-child { text-align:left; }
+.summary-table td { padding:1px 0; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -791,25 +798,46 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
         var byYear = {};
         var byAgency = {};
+        var totalVictims = 0;
         records.forEach(function(r) {
-          byYear[r.Year] = (byYear[r.Year] || 0) + 1;
-          byAgency[r.Agency] = (byAgency[r.Agency] || 0) + 1;
+          var vc = r.VictimCount || 1;
+          totalVictims += vc;
+
+          if (!byYear[r.Year]) { byYear[r.Year] = { incidents: 0, victims: 0 }; }
+          byYear[r.Year].incidents += 1;
+          byYear[r.Year].victims += vc;
+
+          if (!byAgency[r.Agency]) { byAgency[r.Agency] = { incidents: 0, victims: 0 }; }
+          byAgency[r.Agency].incidents += 1;
+          byAgency[r.Agency].victims += vc;
         });
 
         var currentYearNum = parseInt(data.current_year, 10);
 
-        var yearRows = checkedYears
-          .sort(function(a, b) { return b - a; })
-          .map(function(y) {
-            var periodTag = (parseInt(y, 10) === currentYearNum) ? ' (YTD)' : '';
-            return y + periodTag + ': ' + (byYear[y] || 0);
-          })
-          .join('<br/>');
+        var yearLabels = checkedYears.sort(function(a, b) { return b - a; });
+        var yearDisplayLabels = yearLabels.map(function(y) {
+          return (parseInt(y, 10) === currentYearNum) ? (y + ' (YTD)') : y;
+        });
+        var yearRowsHtml = yearLabels.map(function(y, i) {
+          var d = byYear[y] || { incidents: 0, victims: 0 };
+          return '<tr><td style=\"text-align:left;\">' + yearDisplayLabels[i] + '</td>' +
+            '<td style=\"text-align:right;\">' + d.incidents + '</td>' +
+            '<td style=\"text-align:right;\">' + d.victims + '</td></tr>';
+        }).join('');
+        var yearTableHtml = '<table class=\"summary-table\">' +
+          '<tr><th></th><th>Inc.</th><th>Vic.</th></tr>' + yearRowsHtml + '</table>';
 
-        var agencyRows = Object.keys(byAgency)
-          .sort(function(a, b) { return byAgency[b] - byAgency[a]; })
-          .map(function(a) { return a + ': ' + byAgency[a]; })
-          .join('<br/>');
+        var agencyLabels = Object.keys(byAgency).sort(function(a, b) {
+          return byAgency[b].incidents - byAgency[a].incidents;
+        });
+        var agencyRowsHtml = agencyLabels.map(function(a) {
+          var d = byAgency[a];
+          return '<tr><td style=\"text-align:left;\">' + a + '</td>' +
+            '<td style=\"text-align:right;\">' + d.incidents + '</td>' +
+            '<td style=\"text-align:right;\">' + d.victims + '</td></tr>';
+        }).join('');
+        var agencyTableHtml = '<table class=\"summary-table\">' +
+          '<tr><th></th><th>Inc.</th><th>Vic.</th></tr>' + agencyRowsHtml + '</table>';
 
         var locationNote = '';
         if (window.searchState.active) {
@@ -821,12 +849,13 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         var html =
           locationNote +
           '<div class=\"summary-count\">' + records.length + '</div>' +
-          'Homicides Shown' +
+          'Homicide Incidents Shown' +
+          '<div class=\"summary-subcount\">Total Victims: ' + totalVictims + '</div>' +
           '<div class=\"summary-block-left\">' +
           '<hr style=\"margin:4px 0;\">' +
-          '<strong>By Year:</strong><br/>' + (yearRows.length ? yearRows : 'None selected') +
+          '<strong>By Year:</strong>' + (yearLabels.length ? yearTableHtml : '<br/>None selected') +
           '<hr style=\"margin:4px 0;\">' +
-          '<strong>By Agency:</strong><br/>' + (agencyRows.length ? agencyRows : 'None selected') +
+          '<strong>By Agency:</strong>' + (agencyLabels.length ? agencyTableHtml : '<br/>None selected') +
           '</div>';
 
         var el = document.getElementById('map-summary');
