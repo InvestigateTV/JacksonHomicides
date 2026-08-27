@@ -103,6 +103,58 @@ color_lookup <- c(
 legend_order <- c("High Increase", "Increase", "Stable", "Decrease", "High Decrease", "No Data")
 
 # =============================================================================
+# CITY-WIDE TRENDS (static, filter-independent panel)
+# =============================================================================
+
+citywide_ytd_current  <- homicides_incidents |>
+  filter(Year == CURRENT_YEAR, yday(Date) <= DOY_CUTOFF) |>
+  nrow()
+
+citywide_ytd_previous <- homicides_incidents |>
+  filter(Year == PREVIOUS_YEAR, yday(Date) <= DOY_CUTOFF) |>
+  nrow()
+
+citywide_pct_change <- case_when(
+  citywide_ytd_previous == 0 & citywide_ytd_current == 0 ~ NA_real_,
+  citywide_ytd_previous == 0 & citywide_ytd_current  > 0 ~ Inf,
+  TRUE ~ (citywide_ytd_current - citywide_ytd_previous) / citywide_ytd_previous
+)
+
+citywide_pct_change_label <- case_when(
+  is.na(citywide_pct_change)       ~ "No Change (0 to 0)",
+  is.infinite(citywide_pct_change) ~ "Large Increase",
+  TRUE ~ paste0(ifelse(citywide_pct_change >= 0, "+", ""), round(citywide_pct_change * 100, 1), "%")
+)
+
+current_month_label <- format(TODAY, "%B %Y")
+
+current_month_count <- homicides_incidents |>
+  filter(Year == CURRENT_YEAR, month(Date) == month(TODAY)) |>
+  nrow()
+
+last_30_days_count <- homicides_incidents |>
+  filter(Date >= (TODAY - 29), Date <= TODAY) |>
+  nrow()
+
+five_year_avg_years <- seq(CURRENT_YEAR - 5, CURRENT_YEAR - 1)
+current_month_num <- month(TODAY)
+current_day_num   <- day(TODAY)
+
+five_year_month_to_date_counts <- sapply(five_year_avg_years, function(Y) {
+  homicides_incidents |>
+    filter(
+      Year == Y,
+      month(Date) == current_month_num,
+      day(Date) <= current_day_num
+    ) |>
+    nrow()
+})
+
+five_year_avg_label <- round(mean(five_year_month_to_date_counts), 1)
+month_to_date_label <- paste0(format(TODAY, "%B"), " (to date)")
+
+
+# =============================================================================
 # STAGE A: Per-year YoY velocity/color
 #   - CURRENT_YEAR: YTD vs YTD (same day-of-year cutoff)
 #   - Completed past years: full year vs full year
@@ -356,6 +408,32 @@ circumstance_control_html <- "
   <div id='circumstance-checkboxes' class='sidebar-scroll sidebar-scroll-small'></div>
 </div>
 "
+
+trends_control_html <- paste0("
+<div class='sidebar-section'>
+  <strong>City-Wide Trends</strong><br/>
+  <div class='trends-row'>
+    <span>", CURRENT_YEAR, " Homicide Incidents to Date:</span>
+    <span class='trends-value'>", citywide_ytd_current, "</span>
+  </div>
+  <div class='trends-row'>
+    <span>Change vs. Last Year:</span>
+    <span class='trends-value'>", citywide_pct_change_label, "</span>
+  </div>
+  <div class='trends-row'>
+    <span>", current_month_label, ":</span>
+    <span class='trends-value'>", current_month_count, "</span>
+  </div>
+  <div class='trends-row'>
+    <span>Last 30 Days:</span>
+    <span class='trends-value'>", last_30_days_count, "</span>
+  </div>
+  <div class='trends-row'>
+    <span>", month_to_date_label, " 5 Year Average:</span>
+    <span class='trends-value'>", five_year_avg_label, "</span>
+  </div>
+</div>
+")
 
 # =============================================================================
 # Search control HTML (address/zip + radius + go/clear)
@@ -1082,6 +1160,13 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; }
 #search-clear-btn { background:#6c757d; color:white; }
 #search-error { color:#B2182B; font-size:12px; display:none; margin-bottom:6px; }
 #search-matched { color:#2c7be5; font-size:12px; display:none; margin-bottom:6px; }
+.trends-row {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:4px 0; border-bottom:1px solid #eee; gap:8px;
+}
+.trends-row:last-child { border-bottom:none; }
+.trends-row span:first-child { font-size:12px; color:#333; }
+.trends-value { font-weight:bold; font-size:14px; white-space:nowrap; }
 "
 
 sidebar_html <- htmltools::tags$div(
@@ -1089,7 +1174,8 @@ sidebar_html <- htmltools::tags$div(
   htmltools::HTML(search_control_html),
   htmltools::HTML(year_control_html),
   htmltools::HTML(agency_control_html),
-  htmltools::HTML(circumstance_control_html)
+  htmltools::HTML(circumstance_control_html),
+  htmltools::HTML(trends_control_html)
 )
 
 page <- htmltools::tagList(
