@@ -440,7 +440,6 @@ days_since_last_homicide <- as.integer(TODAY - max(homicides_incidents$Date, na.
 header_html <- paste0("
 <div class='dashboard-header'>
   <div class='header-left'>
-    <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
     <div class='header-title'>
       <div class='header-title-main'>Jackson's Homicides</div>
       <div class='header-title-sub'>A Public Safety Tracker</div>
@@ -449,6 +448,9 @@ header_html <- paste0("
   <div class='header-stats'>
     <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
     <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
+  </div>
+  <div class='header-right'>
+    <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
   </div>
 </div>
 ")
@@ -498,10 +500,12 @@ legend_html <- paste0("
 .yoy-status-box {
   background:white; padding:6px 14px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
   font-size:13px; font-weight:bold; display:inline-block;
-  position:fixed; top:10px; left:calc(260px + (100vw - 260px) / 2);
-  transform:translateX(-50%); z-index:1000;
 }
-.leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
+.leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
+.leaflet-control.yoy-status-centered {
+  position:absolute !important; left:50% !important; top:0 !important;
+  transform:translateX(-50%); margin:10px 0 0 0 !important;
+}
 .map-summary-box {
   background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
   font-size:14px; line-height:1.3; width:170px; max-width:170px;
@@ -583,7 +587,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
   addControl(
     html = "<div id='yoy-status' class='yoy-status-box'>Showing change: loading...</div>",
     position = "topleft",
-    className = "yoy-status-wrap"
+    className = "yoy-status-wrap yoy-status-centered"
   ) |>
   addControl(
     html = "<div id='map-summary' class='map-summary-box'>Loading summary...</div>",
@@ -1157,11 +1161,15 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; }
   display:flex; align-items:center; justify-content:space-between;
   padding:0 16px; border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
 }
-.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
-.header-logo { height:40px; width:auto; flex-shrink:0; }
-.header-title-main { font-weight:bold; font-size:16px; white-space:nowrap; }
-.header-title-sub { font-size:11px; color:#666; white-space:nowrap; }
-.header-stats { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.header-left { display:flex; align-items:center; gap:10px; min-width:0; flex-shrink:0; }
+.header-right { display:flex; align-items:center; flex-shrink:0; }
+.header-logo { height:40px; width:auto; }
+.header-title-main { font-weight:bold; font-size:22px; line-height:1.1; white-space:nowrap; }
+.header-title-sub { font-size:12px; color:#666; white-space:nowrap; }
+.header-stats {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  justify-content:center; flex-grow:1;
+}
 .header-stat {
   font-size:12px; font-weight:bold; padding:6px 10px; border-radius:4px; white-space:nowrap;
 }
@@ -1252,4 +1260,9 @@ page <- htmltools::tagList(
 )
 
 dir.create("docs", showWarnings = FALSE)
+dir.create("docs/visuals", showWarnings = FALSE)
+if (file.exists("visuals/wlbtinv.png")) {
+  file.copy("visuals/wlbtinv.png", "docs/visuals/wlbtinv.png", overwrite = TRUE)
+}
+
 htmltools::save_html(page, file = "docs/index.html")
