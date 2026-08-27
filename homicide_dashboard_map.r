@@ -400,16 +400,19 @@ legend_html <- paste0("
 .yoy-status-box {
   background:white; padding:6px 14px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
   font-size:13px; font-weight:bold; display:inline-block;
-  position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:1000;
+  position:fixed; top:10px; left:calc(260px + (100vw - 260px) / 2);
+  transform:translateX(-50%); z-index:1000;
 }
 .leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
 .map-summary-box {
-  background:white; padding:10px 12px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.5; width:190px; max-width:190px;
-  word-wrap:break-word; overflow-wrap:break-word;
+  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:12px; line-height:1.3; width:150px; max-width:150px;
+  word-wrap:break-word; overflow-wrap:break-word; text-align:center;
+  transform: scale(0.8); transform-origin: top right;
 }
-.summary-count { font-size:26px; font-weight:bold; }
-.summary-location-note { color:#2c7be5; font-size:12px; margin-bottom:6px; }
+.map-summary-box .summary-block-left { text-align:left; }
+.summary-count { font-size:22px; font-weight:bold; }
+.summary-location-note { color:#2c7be5; font-size:11px; margin-bottom:4px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -475,7 +478,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
   ) |>
   addControl(html = legend_html, position = "topleft", className = "custom-legend-wrap") |>
   addControl(
-    html = "<div id='yoy-status' class='yoy-status-box'>Showing YoY change: loading...</div>",
+    html = "<div id='yoy-status' class='yoy-status-box'>Showing change: loading...</div>",
     position = "topleft",
     className = "yoy-status-wrap"
   ) |>
@@ -818,9 +821,13 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         var html =
           locationNote +
           '<div class=\"summary-count\">' + records.length + '</div>' +
-          'Homicides Shown<br/><br/>' +
-          '<strong>By Year:</strong><br/>' + (yearRows.length ? yearRows : 'None selected') + '<br/><br/>' +
-          '<strong>By Agency:</strong><br/>' + (agencyRows.length ? agencyRows : 'None selected');
+          'Homicides Shown' +
+          '<div class=\"summary-block-left\">' +
+          '<hr style=\"margin:4px 0;\">' +
+          '<strong>By Year:</strong><br/>' + (yearRows.length ? yearRows : 'None selected') +
+          '<hr style=\"margin:4px 0;\">' +
+          '<strong>By Agency:</strong><br/>' + (agencyRows.length ? agencyRows : 'None selected') +
+          '</div>';
 
         var el = document.getElementById('map-summary');
         if (el) { el.innerHTML = html; }
@@ -967,8 +974,8 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (pairYear !== null) {
           window.drawWardYear(pairYear);
           var currentYearNum = parseInt(data.current_year, 10);
-          var periodLabel = (pairYear === currentYearNum) ? ' (Year-to-Date)' : ' (Full Year)';
-          window.updateYoyStatusText('Showing YoY change: ' + (pairYear - 1) + ' &rarr; ' + pairYear + periodLabel);
+          var secondYearLabel = (pairYear === currentYearNum) ? (pairYear + ' (Year-to-Date)') : String(pairYear);
+          window.updateYoyStatusText('Showing change from ' + (pairYear - 1) + ' to ' + secondYearLabel);
         } else {
           window.drawNoComparisonWards();
           window.updateYoyStatusText('Select two consecutive years to see year-over-year trends.');
