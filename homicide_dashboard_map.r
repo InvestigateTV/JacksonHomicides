@@ -405,9 +405,11 @@ legend_html <- paste0("
 .leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
 .map-summary-box {
   background:white; padding:10px 12px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.5; min-width:170px;
+  font-size:13px; line-height:1.5; width:190px; max-width:190px;
+  word-wrap:break-word; overflow-wrap:break-word;
 }
 .summary-count { font-size:26px; font-weight:bold; }
+.summary-location-note { color:#2c7be5; font-size:12px; margin-bottom:6px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -791,9 +793,14 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           byAgency[r.Agency] = (byAgency[r.Agency] || 0) + 1;
         });
 
+        var currentYearNum = parseInt(data.current_year, 10);
+
         var yearRows = checkedYears
           .sort(function(a, b) { return b - a; })
-          .map(function(y) { return y + ': ' + (byYear[y] || 0); })
+          .map(function(y) {
+            var periodTag = (parseInt(y, 10) === currentYearNum) ? ' (YTD)' : '';
+            return y + periodTag + ': ' + (byYear[y] || 0);
+          })
           .join('<br/>');
 
         var agencyRows = Object.keys(byAgency)
@@ -804,7 +811,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         var locationNote = '';
         if (window.searchState.active) {
           locationNote =
-            '<div style=\"color:#2c7be5; font-weight:bold; margin-bottom:6px;\">Showing incidents within ' +
+            '<div class=\"summary-location-note\">Showing incidents within ' +
             window.searchState.radiusMiles + ' mile(s) of search location.</div>';
         }
 
@@ -1020,9 +1027,9 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; }
   background:white; padding:10px 12px; margin-bottom:10px; border-radius:4px;
   box-shadow:0 1px 3px rgba(0,0,0,0.15); font-size:13px; line-height:1.6;
 }
-.sidebar-scroll { max-height:180px; overflow-y:auto; }
+.sidebar-scroll { max-height:70px; overflow-y:auto; }
 .sidebar-section-small { padding:8px 10px; }
-.sidebar-scroll-small { max-height:135px; overflow-y:auto; }
+.sidebar-scroll-small { max-height:70px; overflow-y:auto; }
 .sidebar-section input[type=text] {
   width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
   font-size:13px; border:1px solid #ccc; border-radius:3px;
