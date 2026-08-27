@@ -341,13 +341,17 @@ incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(
 # Agency/Circumstance filter control HTML (populated dynamically by JS)
 # =============================================================================
 
-filter_control_html <- "
-<div class='sidebar-section'>
+agency_control_html <- "
+<div class='sidebar-section sidebar-section-small'>
   <strong>Agency</strong><br/>
-  <div id='agency-checkboxes' class='sidebar-scroll'></div>
-  <hr style='margin:6px 0;'>
+  <div id='agency-checkboxes' class='sidebar-scroll sidebar-scroll-small'></div>
+</div>
+"
+
+circumstance_control_html <- "
+<div class='sidebar-section sidebar-section-small'>
   <strong>Circumstance</strong><br/>
-  <div id='circumstance-checkboxes' class='sidebar-scroll'></div>
+  <div id='circumstance-checkboxes' class='sidebar-scroll sidebar-scroll-small'></div>
 </div>
 "
 
@@ -457,14 +461,15 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
   addProviderTiles(providers$OpenStreetMap.Mapnik, options = providerTileOptions(attribution = "© OpenStreetMap")) |>
   addMapPane("wardsPane",     zIndex = 650) |>
   addMapPane("cityPane",      zIndex = 670) |>
+  addMapPane("ccidPane",      zIndex = 680) |>
   addMapPane("incidentsPane", zIndex = 690) |>
-  addPolygons(
-    data = CCID_boundary_sf, color = "#A020F0", fillOpacity = 0, weight = 2,
-    options = pathOptions(pane = "cityPane", interactive = FALSE)
-  ) |>
   addPolygons(
     data = city_boundary_sf, color = "#000000", fillOpacity = 0, weight = 2,
     options = pathOptions(pane = "cityPane", interactive = FALSE)
+  ) |>
+  addPolygons(
+    data = CCID_boundary_sf, color = "#A020F0", fillOpacity = 0, weight = 3, opacity = 1,
+    options = pathOptions(pane = "ccidPane", interactive = FALSE)
   ) |>
   addControl(html = legend_html, position = "topleft", className = "custom-legend-wrap") |>
   addControl(
@@ -817,6 +822,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.enforcePaneOrder = function() {
         if (map.getPane('wardsPane'))     { map.getPane('wardsPane').style.zIndex = 650; }
         if (map.getPane('cityPane'))      { map.getPane('cityPane').style.zIndex = 670; }
+        if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
       };
 
@@ -985,6 +991,14 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       document.getElementById('search-address').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') { window.runSearch(); }
       });
+      document.getElementById('search-radius').addEventListener('change', function() {
+        if (window.searchState.active) {
+          var radiusMiles = parseFloat(document.getElementById('search-radius').value);
+          window.searchState.radiusMiles = radiusMiles;
+          window.drawSearchBuffer(window.searchState.lat, window.searchState.lng, radiusMiles);
+          window.onAnyFilterChange();
+        }
+      });
 
       window.refreshFilterOptions();
       window.onAnyFilterChange();
@@ -1007,6 +1021,8 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; }
   box-shadow:0 1px 3px rgba(0,0,0,0.15); font-size:13px; line-height:1.6;
 }
 .sidebar-scroll { max-height:180px; overflow-y:auto; }
+.sidebar-section-small { padding:8px 10px; }
+.sidebar-scroll-small { max-height:135px; overflow-y:auto; }
 .sidebar-section input[type=text] {
   width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
   font-size:13px; border:1px solid #ccc; border-radius:3px;
@@ -1029,7 +1045,8 @@ sidebar_html <- htmltools::tags$div(
   class = "dashboard-sidebar",
   htmltools::HTML(search_control_html),
   htmltools::HTML(year_control_html),
-  htmltools::HTML(filter_control_html)
+  htmltools::HTML(agency_control_html),
+  htmltools::HTML(circumstance_control_html)
 )
 
 page <- htmltools::tagList(
