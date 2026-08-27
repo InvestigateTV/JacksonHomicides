@@ -435,6 +435,24 @@ trends_control_html <- paste0("
 </div>
 ")
 
+days_since_last_homicide <- as.integer(TODAY - max(homicides_incidents$Date, na.rm = TRUE))
+
+header_html <- paste0("
+<div class='dashboard-header'>
+  <div class='header-left'>
+    <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
+    <div class='header-title'>
+      <div class='header-title-main'>Jackson's Homicides</div>
+      <div class='header-title-sub'>A Public Safety Tracker</div>
+    </div>
+  </div>
+  <div class='header-stats'>
+    <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
+    <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
+  </div>
+</div>
+")
+
 # =============================================================================
 # Search control HTML (address/zip + radius + go/clear)
 # =============================================================================
@@ -1129,14 +1147,51 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
   )
 
 sidebar_css <- "
+:root { --header-height: 64px; }
+* { box-sizing:border-box; }
 body { margin:0; padding:0; font-family: Arial, sans-serif; }
-.dashboard-layout { display:flex; height:100vh; width:100vw; }
-.dashboard-sidebar {
-  width:260px; min-width:260px; height:100vh; overflow-y:auto;
-  background:#f7f7f7; border-right:1px solid #ddd; padding:10px; box-sizing:border-box;
+.dashboard-page { display:flex; flex-direction:column; height:100vh; width:100vw; overflow:hidden; }
+
+.dashboard-header {
+  background:#ffffff; height:var(--header-height); min-height:var(--header-height);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
 }
-.dashboard-map { flex-grow:1; height:100vh; }
+.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.header-logo { height:40px; width:auto; flex-shrink:0; }
+.header-title-main { font-weight:bold; font-size:16px; white-space:nowrap; }
+.header-title-sub { font-size:11px; color:#666; white-space:nowrap; }
+.header-stats { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.header-stat {
+  font-size:12px; font-weight:bold; padding:6px 10px; border-radius:4px; white-space:nowrap;
+}
+.header-stat-count { background:#B2182B; color:white; }
+.header-stat-days { background:#1a2b48; color:white; }
+
+.dashboard-layout {
+  display:flex; flex-direction:row;
+  height:calc(100vh - var(--header-height)); width:100vw;
+  flex-grow:1; min-height:0;
+}
+.dashboard-sidebar {
+  width:22%; min-width:230px; max-width:320px; height:100%; overflow-y:auto;
+  background:#f7f7f7; border-right:1px solid #ddd; padding:10px; box-sizing:border-box;
+  flex-shrink:0;
+}
+.dashboard-map { flex-grow:1; height:100%; min-width:0; }
 .dashboard-map .html-widget { height:100% !important; width:100% !important; }
+
+@media (max-width: 900px) {
+  .dashboard-page { height:auto; overflow:auto; }
+  .dashboard-header { flex-wrap:wrap; height:auto; padding:8px 12px; }
+  .header-stats { width:100%; justify-content:flex-start; margin-top:6px; }
+  .dashboard-layout { flex-direction:column; height:auto; }
+  .dashboard-sidebar {
+    width:100%; max-width:100%; height:auto; max-height:none;
+    border-right:none; border-bottom:1px solid #ddd; order:2;
+  }
+  .dashboard-map { width:100%; height:60vh; min-height:350px; order:1; }
+}
 .sidebar-section {
   background:white; padding:10px 12px; margin-bottom:10px; border-radius:4px;
   box-shadow:0 1px 3px rgba(0,0,0,0.15); font-size:13px; line-height:1.6;
@@ -1186,9 +1241,13 @@ page <- htmltools::tagList(
     htmltools::tags$style(htmltools::HTML(sidebar_css))
   ),
   htmltools::tags$div(
-    class = "dashboard-layout",
-    sidebar_html,
-    htmltools::tags$div(class = "dashboard-map", map)
+    class = "dashboard-page",
+    htmltools::HTML(header_html),
+    htmltools::tags$div(
+      class = "dashboard-layout",
+      sidebar_html,
+      htmltools::tags$div(class = "dashboard-map", map)
+    )
   )
 )
 
