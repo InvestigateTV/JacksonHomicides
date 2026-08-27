@@ -6,6 +6,7 @@ library(stringr)
 library(jsonlite)
 library(leaflet)
 library(readxl)
+library(htmltools)
 
 # =============================================================================
 # DATA LOAD
@@ -304,28 +305,11 @@ year_checkbox_rows <- paste0(
 )
 
 year_control_html <- paste0("
-<style>
-.year-control-box {
-  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.5; max-height:220px; overflow-y:auto;
-}
-.leaflet-control.year-control-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
-.yoy-status-box {
-  background:white; padding:6px 14px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; font-weight:bold; display:inline-block;
-  position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:1000;
-}
-.leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
-.map-summary-box {
-  background:white; padding:10px 12px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.5; min-width:170px;
-}
-.summary-count { font-size:26px; font-weight:bold; }
-.leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
-</style>
-<div class='year-control-box'>
+<div class='sidebar-section'>
   <strong>Years Shown</strong><br/>
+  <div class='sidebar-scroll'>
   ", year_checkbox_rows, "
+  </div>
 </div>
 ")
 
@@ -358,19 +342,12 @@ incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(
 # =============================================================================
 
 filter_control_html <- "
-<style>
-.filter-control-box {
-  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.5; max-height:220px; overflow-y:auto; margin-top:8px;
-}
-.leaflet-control.filter-control-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
-</style>
-<div class='filter-control-box'>
+<div class='sidebar-section'>
   <strong>Agency</strong><br/>
-  <div id='agency-checkboxes'></div>
+  <div id='agency-checkboxes' class='sidebar-scroll'></div>
   <hr style='margin:6px 0;'>
   <strong>Circumstance</strong><br/>
-  <div id='circumstance-checkboxes'></div>
+  <div id='circumstance-checkboxes' class='sidebar-scroll'></div>
 </div>
 "
 
@@ -379,30 +356,7 @@ filter_control_html <- "
 # =============================================================================
 
 search_control_html <- "
-<style>
-.search-control-box {
-  background:white; padding:10px 12px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.6; width:220px;
-}
-.search-control-box input[type=text] {
-  width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
-  font-size:13px; border:1px solid #ccc; border-radius:3px;
-}
-.search-control-box select {
-  width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
-  font-size:13px; border:1px solid #ccc; border-radius:3px;
-}
-.search-control-box button {
-  width:100%; padding:6px; margin-bottom:6px; font-size:13px;
-  border:none; border-radius:3px; cursor:pointer;
-}
-#search-go-btn { background:#2c7be5; color:white; }
-#search-clear-btn { background:#6c757d; color:white; }
-#search-error { color:#B2182B; font-size:12px; display:none; margin-bottom:6px; }
-#search-matched { color:#2c7be5; font-size:12px; display:none; margin-bottom:6px; }
-.leaflet-control.search-control-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
-</style>
-<div class='search-control-box'>
+<div class='sidebar-section'>
   <strong>Search Nearby</strong><br/>
   <input type='text' id='search-address' placeholder='Address or Zip Code...'>
   <select id='search-radius'>
@@ -439,6 +393,18 @@ legend_html <- paste0("
   font-size:13px; line-height:1.6; transform: scale(0.8); transform-origin: top left;
 }
 .leaflet-control.custom-legend-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
+.yoy-status-box {
+  background:white; padding:6px 14px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:13px; font-weight:bold; display:inline-block;
+  position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:1000;
+}
+.leaflet-control.yoy-status-wrap { background: transparent !important; box-shadow: none !important; border: none !important; position:static !important; }
+.map-summary-box {
+  background:white; padding:10px 12px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:13px; line-height:1.5; min-width:170px;
+}
+.summary-count { font-size:26px; font-weight:bold; }
+.leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
   <strong>Legend</strong><br/>
@@ -501,9 +467,6 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
     options = pathOptions(pane = "cityPane", interactive = FALSE)
   ) |>
   addControl(html = legend_html, position = "topleft", className = "custom-legend-wrap") |>
-  addControl(html = year_control_html, position = "bottomleft", className = "year-control-wrap") |>
-  addControl(html = filter_control_html, position = "bottomleft", className = "filter-control-wrap") |>
-  addControl(html = search_control_html, position = "topleft", className = "search-control-wrap") |>
   addControl(
     html = "<div id='yoy-status' class='yoy-status-box'>Showing YoY change: loading...</div>",
     position = "topleft",
@@ -1030,5 +993,58 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
     data = render_payload
   )
 
+sidebar_css <- "
+body { margin:0; padding:0; font-family: Arial, sans-serif; }
+.dashboard-layout { display:flex; height:100vh; width:100vw; }
+.dashboard-sidebar {
+  width:260px; min-width:260px; height:100vh; overflow-y:auto;
+  background:#f7f7f7; border-right:1px solid #ddd; padding:10px; box-sizing:border-box;
+}
+.dashboard-map { flex-grow:1; height:100vh; }
+.dashboard-map .html-widget { height:100% !important; width:100% !important; }
+.sidebar-section {
+  background:white; padding:10px 12px; margin-bottom:10px; border-radius:4px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.15); font-size:13px; line-height:1.6;
+}
+.sidebar-scroll { max-height:180px; overflow-y:auto; }
+.sidebar-section input[type=text] {
+  width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
+  font-size:13px; border:1px solid #ccc; border-radius:3px;
+}
+.sidebar-section select {
+  width:100%; box-sizing:border-box; padding:5px; margin-bottom:6px;
+  font-size:13px; border:1px solid #ccc; border-radius:3px;
+}
+.sidebar-section button {
+  width:100%; padding:6px; margin-bottom:6px; font-size:13px;
+  border:none; border-radius:3px; cursor:pointer;
+}
+#search-go-btn { background:#2c7be5; color:white; }
+#search-clear-btn { background:#6c757d; color:white; }
+#search-error { color:#B2182B; font-size:12px; display:none; margin-bottom:6px; }
+#search-matched { color:#2c7be5; font-size:12px; display:none; margin-bottom:6px; }
+"
+
+sidebar_html <- htmltools::tags$div(
+  class = "dashboard-sidebar",
+  htmltools::HTML(search_control_html),
+  htmltools::HTML(year_control_html),
+  htmltools::HTML(filter_control_html)
+)
+
+page <- htmltools::tagList(
+  htmltools::tags$head(
+    htmltools::tags$meta(charset = "UTF-8"),
+    htmltools::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0"),
+    htmltools::tags$title("Jackson Homicide Dashboard"),
+    htmltools::tags$style(htmltools::HTML(sidebar_css))
+  ),
+  htmltools::tags$div(
+    class = "dashboard-layout",
+    sidebar_html,
+    htmltools::tags$div(class = "dashboard-map", map)
+  )
+)
+
 dir.create("docs", showWarnings = FALSE)
-htmlwidgets::saveWidget(map, file = "docs/index.html", selfcontained = TRUE)
+htmltools::save_html(page, file = "docs/index.html")
