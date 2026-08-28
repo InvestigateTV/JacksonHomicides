@@ -1423,6 +1423,10 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.updateDetailedBreakdowns = function() {
         var panel = document.getElementById('tab-detailed-breakdowns');
         if (!panel) { return; }
+        if (typeof Chart === 'undefined') {
+          window.waitForChartJs(window.updateDetailedBreakdowns);
+          return;
+        }
 
         var victimRecords = window.getFilteredVictimRecords();
         var incidentRecords = window.dedupeToIncidents(victimRecords);
@@ -1676,13 +1680,21 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         window.enforcePaneOrder();
       };
 
+      window.safeCall = function(name, fn) {
+        try {
+          fn();
+        } catch (e) {
+          console.error(name + ' failed:', e);
+        }
+      };
+
       window.onAnyFilterChange = function() {
-        window.refreshIncidentVisibility();
-        window.refreshWardComparison();
-        window.updateMapSummary();
-        window.enforcePaneOrder();
-        window.updateDetailedBreakdowns();
-        window.updateVictimsTable();
+        window.safeCall('refreshIncidentVisibility', window.refreshIncidentVisibility);
+        window.safeCall('refreshWardComparison', window.refreshWardComparison);
+        window.safeCall('updateMapSummary', window.updateMapSummary);
+        window.safeCall('enforcePaneOrder', window.enforcePaneOrder);
+        window.safeCall('updateDetailedBreakdowns', window.updateDetailedBreakdowns);
+        window.safeCall('updateVictimsTable', window.updateVictimsTable);
       };
 
       window.onYearChange = function() {
@@ -1709,7 +1721,23 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       });
 
       window.chartsTabInit();
-      window.buildKeyTrendsCharts();
+
+      window.waitForChartJs = function(callback, attemptsLeft) {
+        if (typeof Chart !== 'undefined') {
+          callback();
+          return;
+        }
+        if (typeof attemptsLeft === 'undefined') { attemptsLeft = 50; }
+        if (attemptsLeft <= 0) {
+          console.error('Chart.js failed to load; charts will not render.');
+          return;
+        }
+        setTimeout(function() { window.waitForChartJs(callback, attemptsLeft - 1); }, 100);
+      };
+
+      window.waitForChartJs(function() {
+        try { window.buildKeyTrendsCharts(); } catch (e) { console.error('buildKeyTrendsCharts failed:', e); }
+      });
 
       var victimsSearchInput = document.getElementById('victims-search');
       if (victimsSearchInput) {
