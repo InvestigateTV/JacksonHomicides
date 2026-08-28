@@ -1154,7 +1154,7 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 
 .dashboard-header {
   background:#ffffff; height:var(--header-height); min-height:var(--header-height);
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
   padding:0 16px; border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
 }
 .header-main {
@@ -1204,7 +1204,7 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 @media (max-width: 900px) {
   .dashboard-page { height:auto; overflow:auto; max-width:100%; box-shadow:none; }
   .dashboard-header {
-    display:flex; flex-wrap:wrap; height:auto; padding:10px 12px;
+    display:flex; flex-wrap:wrap; height:auto; padding:10px 12px; gap:0;
     align-items:flex-start; justify-content:space-between;
   }
   .header-main { flex-wrap:wrap; gap:8px; order:1; flex-basis:70%; }
