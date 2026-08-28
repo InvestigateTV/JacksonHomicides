@@ -1268,6 +1268,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           var yrs = data.homicides_by_year.map(function(r) { return r.year; });
 
           window.chartHomicidesYear = new Chart(yearCanvas.getContext('2d'), {
+            type: 'bar',
             data: {
               labels: yrs,
               datasets: [
@@ -1749,6 +1750,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         };
         script.onerror = function() {
           console.error('Chart.js failed to load from CDN; charts will not render.');
+          document.querySelectorAll('.chart-card-canvas-wrap').forEach(function(wrap) {
+            wrap.innerHTML = '<div style=\"color:#B2182B; font-size:12px; text-align:center; padding-top:40px;\">Chart library failed to load. Check your network/ad-blocker and refresh.</div>';
+          });
         };
         document.head.appendChild(script);
       };
@@ -1756,7 +1760,17 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.loadChartJs();
 
       window.waitForChartJs(function() {
-        try { window.buildKeyTrendsCharts(); } catch (e) { console.error('buildKeyTrendsCharts failed:', e); }
+        try {
+          window.buildKeyTrendsCharts();
+        } catch (e) {
+          console.error('buildKeyTrendsCharts failed:', e);
+          var panel = document.getElementById('tab-key-trends');
+          if (panel) {
+            panel.querySelectorAll('.chart-card-canvas-wrap').forEach(function(wrap) {
+              wrap.innerHTML = '<div style=\"color:#B2182B; font-size:12px; text-align:center; padding-top:40px;\">Chart failed to render: ' + window.escapeHtml(e.message || String(e)) + '</div>';
+            });
+          }
+        }
       });
 
       var victimsSearchInput = document.getElementById('victims-search');
