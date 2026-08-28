@@ -439,15 +439,15 @@ days_since_last_homicide <- as.integer(TODAY - max(homicides_incidents$Date, na.
 
 header_html <- paste0("
 <div class='dashboard-header'>
-  <div class='header-left'>
+  <div class='header-main'>
     <div class='header-title'>
       <div class='header-title-main'>Jackson's Homicides</div>
       <div class='header-title-sub'>A Public Safety Tracker</div>
     </div>
-  </div>
-  <div class='header-stats'>
-    <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
-    <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
+    <div class='header-stats'>
+      <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
+      <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
+    </div>
   </div>
   <div class='header-right'>
     <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
@@ -1172,14 +1172,17 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
   display:flex; align-items:center; justify-content:space-between;
   padding:0 16px; border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
 }
-.header-left { display:flex; align-items:center; gap:10px; min-width:0; flex-shrink:0; }
+.header-main {
+  display:flex; align-items:center; gap:20px; min-width:0; flex-wrap:wrap; flex-grow:1;
+}
+.header-title { flex-shrink:0; }
 .header-right { display:flex; align-items:center; flex-shrink:0; }
 .header-logo { height:40px; width:auto; }
 .header-title-main { font-weight:bold; font-size:22px; line-height:1.1; white-space:nowrap; }
 .header-title-sub { font-size:12px; color:#666; white-space:nowrap; }
 .header-stats {
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  justify-content:center; flex-grow:1;
+  justify-content:flex-start;
 }
 .header-stat {
   font-size:12px; font-weight:bold; padding:6px 10px; border-radius:4px; white-space:nowrap;
@@ -1202,9 +1205,21 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 
 @media (max-width: 900px) {
   .dashboard-page { height:auto; overflow:auto; max-width:100%; box-shadow:none; }
-  .dashboard-header { flex-wrap:wrap; height:auto; padding:10px 12px; }
-  .header-title-main { font-size:18px; }
-  .header-stats { width:100%; justify-content:flex-start; margin-top:8px; }
+  .dashboard-header {
+    display:flex; flex-wrap:wrap; height:auto; padding:10px 12px;
+    align-items:flex-start; justify-content:space-between;
+  }
+  .header-main { flex-wrap:wrap; gap:8px; order:1; flex-basis:70%; }
+  .header-title { order:1; }
+  .header-title-main { font-size:16px; }
+  .header-title-sub { font-size:10px; }
+  .header-right { order:2; flex-basis:25%; justify-content:flex-end; }
+  .header-logo { height:28px; }
+  .header-stats {
+    order:3; flex-basis:100%; flex-direction:column; align-items:flex-start;
+    gap:6px; margin-top:6px;
+  }
+  .header-stat { width:100%; box-sizing:border-box; text-align:center; }
   .dashboard-layout { flex-direction:column; height:auto; }
   .dashboard-sidebar {
     width:100%; max-width:100%; height:auto; max-height:none;
