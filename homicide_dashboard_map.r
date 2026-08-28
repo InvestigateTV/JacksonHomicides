@@ -466,9 +466,6 @@ incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(
 # Circumstance/Search filters as the map).
 # =============================================================================
 
-incident_lookup_for_victims <- homicides_incidents |>
-  select(UUID, Year, WardKey, Investigating.Agency, Circumstance, Latitude, Longitude)
-
 age_group_bucket <- function(age_chr) {
   age_num <- suppressWarnings(as.numeric(age_chr))
   case_when(
@@ -481,9 +478,15 @@ age_group_bucket <- function(age_chr) {
   )
 }
 
+# NOTE: homicides_sf already carries Year/WardKey/Investigating.Agency/
+# Circumstance/Latitude/Longitude at the victim-row level (each victim row
+# for a given UUID shares the same incident-level values from the raw CSV),
+# so no join against homicides_incidents is needed here - joining on UUID
+# while also having those same column names present on both sides would
+# collide and get column-suffixed (e.g. Year.x/Year.y), which is what
+# caused the "object 'Year' not found" error.
 victim_summary_df <- homicides_sf |>
   st_drop_geometry() |>
-  inner_join(incident_lookup_for_victims, by = "UUID") |>
   filter(Year %in% all_years) |>
   mutate(
     Date = as.Date(Date, format = "%m/%d/%Y"),
@@ -495,6 +498,7 @@ victim_summary_df <- homicides_sf |>
     CoverageUrl = ifelse(is.na(URL) | URL == "", NA_character_, URL)
   ) |>
   transmute(
+    UUID = UUID,
     Year = as.character(Year),
     Agency = Investigating.Agency,
     Circumstance = Circumstance,
@@ -513,6 +517,7 @@ victim_summary_df <- homicides_sf |>
 
 victim_summary_records <- lapply(seq_len(nrow(victim_summary_df)), function(i) {
   list(
+    UUID = victim_summary_df$UUID[i],
     Year = victim_summary_df$Year[i],
     Agency = victim_summary_df$Agency[i],
     Circumstance = victim_summary_df$Circumstance[i],
@@ -1403,21 +1408,36 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         return out;
       };
 
+      window.dedupeToIncidents = function(records) {
+        var seen = {};
+        var out = [];
+        records.forEach(function(r) {
+          if (!seen[r.UUID]) {
+            seen[r.UUID] = true;
+            out.push(r);
+          }
+        });
+        return out;
+      };
+
       window.updateDetailedBreakdowns = function() {
         var panel = document.getElementById('tab-detailed-breakdowns');
         if (!panel) { return; }
 
-        var records = window.getFilteredVictimRecords();
+        var victimRecords = window.getFilteredVictimRecords();
+        var incidentRecords = window.dedupeToIncidents(victimRecords);
 
+        /* Victim-level attributes: Age and Race describe individual victims,
+           so multi-victim incidents should count each victim once here. */
         var ageOrder = ['0-17', '18-29', '30-49', '50+', 'Unknown'];
-        var ageCounts = window.countBy(records, function(r) { return r.AgeGroup; });
+        var ageCounts = window.countBy(victimRecords, function(r) { return r.AgeGroup; });
         window.upsertBarChart(
           'chartAgeGroup', 'chart-age-group',
           ageOrder, ageOrder.map(function(k) { return ageCounts[k] || 0; }),
           '#1a2b48'
         );
 
-        var raceCounts = window.countBy(records, function(r) { return r.Race; });
+        var raceCounts = window.countBy(victimRecords, function(r) { return r.Race; });
         var raceLabels = Object.keys(raceCounts).sort();
         window.upsertPieChart(
           'chartRace', 'chart-race',
@@ -1425,7 +1445,11 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           window.paletteFor(raceLabels.length)
         );
 
-        var circCounts = window.countBy(records, function(r) { return r.Circumstance; });
+        /* Incident-level attributes: Circumstance/Agency/Ward describe the
+           homicide event itself, so a multi-victim incident must count once,
+           matching the incident-count convention used everywhere else on
+           this dashboard (map dots, ward YoY coloring, Map Summary box). */
+        var circCounts = window.countBy(incidentRecords, function(r) { return r.Circumstance; });
         var circLabels = Object.keys(circCounts).sort(function(a, b) { return circCounts[b] - circCounts[a]; });
         window.upsertBarChart(
           'chartCircumstance', 'chart-circumstance',
@@ -1433,7 +1457,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           '#B2182B'
         );
 
-        var agencyCounts = window.countBy(records, function(r) { return r.Agency; });
+        var agencyCounts = window.countBy(incidentRecords, function(r) { return r.Agency; });
         var agencyLabels = Object.keys(agencyCounts).sort(function(a, b) { return agencyCounts[b] - agencyCounts[a]; });
         window.upsertPieChart(
           'chartAgency', 'chart-agency',
@@ -1441,7 +1465,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           window.paletteFor(agencyLabels.length)
         );
 
-        var wardCounts = window.countBy(records, function(r) { return r.WardKey || 'Unknown'; });
+        var wardCounts = window.countBy(incidentRecords, function(r) { return r.WardKey || 'Unknown'; });
         var wardLabels = Object.keys(wardCounts).sort();
         window.upsertBarChart(
           'chartWard', 'chart-ward',
