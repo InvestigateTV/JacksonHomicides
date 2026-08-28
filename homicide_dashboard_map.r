@@ -444,13 +444,13 @@ header_html <- paste0("
       <div class='header-title-main'>Jackson's Homicides</div>
       <div class='header-title-sub'>A Public Safety Tracker</div>
     </div>
-    <div class='header-stats'>
-      <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
-      <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
-    </div>
   </div>
   <div class='header-right'>
     <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
+  </div>
+  <div class='header-stats'>
+    <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
+    <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
   </div>
 </div>
 ")
@@ -497,23 +497,6 @@ legend_html <- paste0("
   font-size:13px; line-height:1.6; transform: scale(0.8); transform-origin: top left;
 }
 .leaflet-control.custom-legend-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
-.yoy-status-box {
-  background:white; padding:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; font-weight:bold; white-space:nowrap; display:inline-block;
-}
-.leaflet-control.yoy-status-wrap {
-  background: transparent !important; box-shadow: none !important; border: none !important;
-}
-.leaflet-top.leaflet-left { width:100%; pointer-events:none; }
-.leaflet-top.leaflet-left .leaflet-control { pointer-events:auto; }
-.leaflet-top .yoy-status-centered {
-  position:absolute !important;
-  left:50% !important;
-  top:6px !important;
-  transform:translateX(-50%);
-  margin:0 !important;
-  z-index:1000;
-}
 .map-summary-box {
   background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
   font-size:14px; line-height:1.3; width:170px; max-width:170px;
@@ -575,6 +558,11 @@ render_payload <- list(
 #   onRender()/L.geoJSON(), swapped per the selected year(s)/filters.
 #   Boundaries are non-interactive so they can never intercept a click
 #   meant for a ward polygon underneath.
+#   The YoY status text is a plain HTML element living OUTSIDE the Leaflet
+#   map (in the outer page, absolutely positioned against .dashboard-map),
+#   not a Leaflet addControl(). This avoids Leaflet's .leaflet-top pane
+#   re-asserting its own sizing/positioning on re-render, which is what
+#   broke the previous bottom-anchored mobile attempt.
 # =============================================================================
 
 map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl = FALSE)) |>
@@ -592,11 +580,6 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
     options = pathOptions(pane = "ccidPane", interactive = FALSE)
   ) |>
   addControl(html = legend_html, position = "topleft", className = "custom-legend-wrap") |>
-  addControl(
-    html = "<div id='yoy-status' class='yoy-status-box'>Showing change: loading...</div>",
-    position = "topleft",
-    className = "yoy-status-wrap yoy-status-centered"
-  ) |>
   addControl(
     html = "<div id='map-summary' class='map-summary-box'>Loading summary...</div>",
     position = "topright",
@@ -1182,7 +1165,7 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 .header-title-sub { font-size:12px; color:#666; white-space:nowrap; }
 .header-stats {
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  justify-content:flex-start;
+  justify-content:flex-end;
 }
 .header-stat {
   font-size:12px; font-weight:bold; padding:6px 10px; border-radius:4px; white-space:nowrap;
@@ -1200,8 +1183,20 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
   background:#f7f7f7; border-right:1px solid #ddd; padding:10px; box-sizing:border-box;
   flex-shrink:0;
 }
-.dashboard-map { flex-grow:1; height:100%; min-width:0; }
+.dashboard-map {
+  flex-grow:1; height:100%; min-width:0; position:relative;
+}
 .dashboard-map .html-widget { height:100% !important; width:100% !important; }
+
+.dashboard-map-yoy-status {
+  position:absolute; left:50%; top:6px; transform:translateX(-50%);
+  z-index:1000; pointer-events:none;
+}
+.dashboard-map-yoy-status .yoy-status-box { pointer-events:auto; }
+.yoy-status-box {
+  background:white; padding:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:13px; font-weight:bold; white-space:nowrap; display:inline-block;
+}
 
 @media (max-width: 900px) {
   .dashboard-page { height:auto; overflow:auto; max-width:100%; box-shadow:none; }
@@ -1217,7 +1212,7 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
   .header-logo { height:28px; }
   .header-stats {
     order:3; flex-basis:100%; width:100%; display:flex; flex-direction:column;
-    align-items:stretch; gap:6px; margin-top:6px;
+    align-items:stretch; gap:6px; margin-top:6px; justify-content:flex-start;
   }
   .header-stat { width:100%; box-sizing:border-box; text-align:center; margin:0; }
   .dashboard-layout { flex-direction:column; height:auto; }
@@ -1230,12 +1225,8 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
   .dashboard-map { width:100%; height:60vh; min-height:350px; order:1; }
   .custom-legend-box { transform:scale(0.65); transform-origin:top left; }
   .map-summary-box { transform:scale(0.65); transform-origin:top right; }
-  .leaflet-top.leaflet-left { height:100%; }
-  .leaflet-top .yoy-status-centered {
-    position:absolute !important;
-    top:auto !important; bottom:10px !important;
-    left:50% !important; transform:translateX(-50%);
-    margin:0 !important; z-index:1000;
+  .dashboard-map-yoy-status {
+    top:auto; bottom:8px; left:50%; transform:translateX(-50%);
   }
   .yoy-status-box { font-size:11px; padding:5px 10px; white-space:normal; max-width:80vw; }
 }
@@ -1293,7 +1284,18 @@ page <- htmltools::tagList(
     htmltools::tags$div(
       class = "dashboard-layout",
       sidebar_html,
-      htmltools::tags$div(class = "dashboard-map", map)
+      htmltools::tags$div(
+        class = "dashboard-map",
+        map,
+        htmltools::tags$div(
+          class = "dashboard-map-yoy-status",
+          htmltools::tags$div(
+            id = "yoy-status",
+            class = "yoy-status-box",
+            "Showing change: loading..."
+          )
+        )
+      )
     )
   )
 )
