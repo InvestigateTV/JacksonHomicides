@@ -1722,18 +1722,38 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
       window.chartsTabInit();
 
-      window.waitForChartJs = function(callback, attemptsLeft) {
-        if (typeof Chart !== 'undefined') {
+      window.chartJsCallbacks = [];
+      window.chartJsReady = false;
+
+      window.waitForChartJs = function(callback) {
+        if (window.chartJsReady && typeof Chart !== 'undefined') {
           callback();
           return;
         }
-        if (typeof attemptsLeft === 'undefined') { attemptsLeft = 50; }
-        if (attemptsLeft <= 0) {
-          console.error('Chart.js failed to load; charts will not render.');
-          return;
-        }
-        setTimeout(function() { window.waitForChartJs(callback, attemptsLeft - 1); }, 100);
+        window.chartJsCallbacks.push(callback);
       };
+
+      window.loadChartJs = function() {
+        var existing = document.getElementById('chartjs-cdn-script');
+        if (existing) { return; }
+
+        var script = document.createElement('script');
+        script.id = 'chartjs-cdn-script';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js';
+        script.onload = function() {
+          window.chartJsReady = true;
+          window.chartJsCallbacks.forEach(function(cb) {
+            try { cb(); } catch (e) { console.error('Chart.js callback failed:', e); }
+          });
+          window.chartJsCallbacks = [];
+        };
+        script.onerror = function() {
+          console.error('Chart.js failed to load from CDN; charts will not render.');
+        };
+        document.head.appendChild(script);
+      };
+
+      window.loadChartJs();
 
       window.waitForChartJs(function() {
         try { window.buildKeyTrendsCharts(); } catch (e) { console.error('buildKeyTrendsCharts failed:', e); }
@@ -1953,8 +1973,7 @@ page <- htmltools::tagList(
     htmltools::tags$meta(charset = "UTF-8"),
     htmltools::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0"),
     htmltools::tags$title("Jackson Homicide Dashboard"),
-    htmltools::tags$style(htmltools::HTML(sidebar_css)),
-    htmltools::tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js")
+    htmltools::tags$style(htmltools::HTML(sidebar_css))
   ),
   htmltools::tags$div(
     class = "dashboard-page",
