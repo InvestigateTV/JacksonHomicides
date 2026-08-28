@@ -1159,15 +1159,16 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 }
 .header-main {
   display:flex; align-items:center; gap:20px; min-width:0; flex-wrap:wrap; flex-grow:1;
+  order:1;
 }
 .header-title { flex-shrink:0; }
-.header-right { display:flex; align-items:center; flex-shrink:0; }
+.header-right { display:flex; align-items:center; flex-shrink:0; order:3; }
 .header-logo { height:40px; width:auto; }
 .header-title-main { font-weight:bold; font-size:22px; line-height:1.1; white-space:nowrap; }
 .header-title-sub { font-size:12px; color:#666; white-space:nowrap; }
 .header-stats {
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  justify-content:flex-end;
+  justify-content:flex-end; order:2;
 }
 .header-stat {
   font-size:12px; font-weight:bold; padding:6px 10px; border-radius:4px; white-space:nowrap;
