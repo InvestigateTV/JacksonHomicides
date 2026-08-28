@@ -347,11 +347,13 @@ unlink(tmp)
 # Year checkbox control HTML
 # =============================================================================
 
+all_years_desc <- sort(all_years, decreasing = TRUE)
+
 year_checkbox_rows <- paste0(
   "<label style='display:block; font-weight:normal;'>",
-  "<input type='checkbox' class='year-toggle' value='", all_years, "'",
-  ifelse(all_years == CURRENT_YEAR, " checked", ""),
-  "> ", all_years,
+  "<input type='checkbox' class='year-toggle' value='", all_years_desc, "'",
+  ifelse(all_years_desc == CURRENT_YEAR, " checked", ""),
+  "> ", all_years_desc,
   "</label>",
   collapse = ""
 )
@@ -461,7 +463,7 @@ header_html <- paste0("
 
 search_control_html <- "
 <div class='sidebar-section'>
-  <strong>Search Nearby</strong><br/>
+  <strong>Search for a Location:</strong><br/>
   <input type='text' id='search-address' placeholder='Address or Zip Code...'>
   <select id='search-radius'>
     <option value='0.25'>0.25 Mile</option>
