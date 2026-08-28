@@ -153,6 +153,70 @@ five_year_month_to_date_counts <- sapply(five_year_avg_years, function(Y) {
 five_year_avg_label <- round(mean(five_year_month_to_date_counts), 1)
 month_to_date_label <- paste0(format(TODAY, "%B"), " (to date)")
 
+# =============================================================================
+# KEY TRENDS CHART DATA (static, filter-independent; feeds the "Key Trends" tab)
+# =============================================================================
+
+CITYWIDE_POPULATION <- 141196
+
+# --- Cumulative Homicides by Year: one running-total series per year, ---
+# --- indexed by day-of-year (1-366) so years overlay on a shared x-axis. ---
+cumulative_by_year <- lapply(all_years, function(Y) {
+  year_days <- if (Y == CURRENT_YEAR) DOY_CUTOFF else 366
+
+  daily_counts <- homicides_incidents |>
+    filter(Year == Y) |>
+    mutate(doy = yday(Date)) |>
+    count(doy, name = "n")
+
+  running <- integer(year_days)
+  for (i in seq_len(year_days)) {
+    day_n <- daily_counts$n[daily_counts$doy == i]
+    running[i] <- if (length(day_n) == 0) 0L else day_n
+  }
+  running <- cumsum(running)
+
+  list(
+    year = as.character(Y),
+    is_current = (Y == CURRENT_YEAR),
+    final_total = as.integer(tail(running, 1)),
+    values = as.integer(running)
+  )
+})
+names(cumulative_by_year) <- as.character(all_years)
+
+today_doy_label <- DOY_CUTOFF
+
+# --- Homicides by Year: incident counts stacked by agency bucket + rate/100k ---
+agency_bucket_expr <- function(agency) {
+  case_when(
+    agency == "JPD"            ~ "JPD",
+    agency == "Capitol Police" ~ "Capitol Police",
+    TRUE                       ~ "Other Agencies"
+  )
+}
+
+homicides_by_year_agency <- homicides_incidents |>
+  filter(Year %in% all_years) |>
+  mutate(agency_bucket = agency_bucket_expr(Investigating.Agency)) |>
+  count(Year, agency_bucket, name = "n")
+
+homicides_by_year_summary <- lapply(all_years, function(Y) {
+  rows <- homicides_by_year_agency |> filter(Year == Y)
+  get_n <- function(bucket) {
+    v <- rows$n[rows$agency_bucket == bucket]
+    if (length(v) == 0) 0L else as.integer(v)
+  }
+  total_incidents <- get_n("JPD") + get_n("Capitol Police") + get_n("Other Agencies")
+  list(
+    year           = as.character(Y),
+    jpd            = get_n("JPD"),
+    capitol_police = get_n("Capitol Police"),
+    other_agencies = get_n("Other Agencies"),
+    total_incidents = total_incidents,
+    rate_per_100k  = round((total_incidents / CITYWIDE_POPULATION) * 100000, 1)
+  )
+})
 
 # =============================================================================
 # STAGE A: Per-year YoY velocity/color
@@ -302,18 +366,21 @@ incident_geojson_by_year <- lapply(all_years, function(Y) {
     return(NULL)
   }
 
+  inc$case_status <- ifelse(is.na(inc$Case.Status) | inc$Case.Status == "", "Unsolved", inc$Case.Status)
+  inc$is_solved <- inc$case_status == "Solved"
+
   inc$popup_html <- with(inc, paste0(
     "<strong>", format(Date, "%B %d, %Y"), " | ", Circumstance, "</strong><hr>",
     "Victim", ifelse(victim_count > 1, "s", ""), ": ", victim_details, "<br/>",
     "Agency: ", Investigating.Agency, "<br/>",
-    "Arrest made: ", ifelse(Arrest.made == "TRUE", "Yes", "No")
+    "Case Status: ", case_status
   ))
   inc$agency <- inc$Investigating.Agency
   inc$circumstance <- inc$Circumstance
 
   tmp <- tempfile(fileext = ".geojson")
   sf::st_write(
-    inc[, c("popup_html", "agency", "circumstance")],
+    inc[, c("popup_html", "agency", "circumstance", "case_status", "is_solved")],
     dsn = tmp, driver = "GeoJSON", quiet = TRUE, delete_dsn = TRUE
   )
   geo_str <- paste(readLines(tmp, encoding = "UTF-8", warn = FALSE), collapse = "\n")
@@ -390,6 +457,76 @@ incident_summary_records <- lapply(seq_len(nrow(incident_summary_df)), function(
     Latitude = incident_summary_df$Latitude[i],
     Longitude = incident_summary_df$Longitude[i],
     VictimCount = incident_summary_df$VictimCount[i]
+  )
+})
+
+# =============================================================================
+# Victim-level summary records (drives "Detailed Breakdowns" charts and the
+# "Victims" table tab; both are responsive to the same Year/Agency/
+# Circumstance/Search filters as the map).
+# =============================================================================
+
+incident_lookup_for_victims <- homicides_incidents |>
+  select(UUID, Year, WardKey, Investigating.Agency, Circumstance, Latitude, Longitude)
+
+age_group_bucket <- function(age_chr) {
+  age_num <- suppressWarnings(as.numeric(age_chr))
+  case_when(
+    is.na(age_num)          ~ "Unknown",
+    age_num <= 17            ~ "0-17",
+    age_num >= 18 & age_num <= 29 ~ "18-29",
+    age_num >= 30 & age_num <= 49 ~ "30-49",
+    age_num >= 50            ~ "50+",
+    TRUE                      ~ "Unknown"
+  )
+}
+
+victim_summary_df <- homicides_sf |>
+  st_drop_geometry() |>
+  inner_join(incident_lookup_for_victims, by = "UUID") |>
+  filter(Year %in% all_years) |>
+  mutate(
+    Date = as.Date(Date, format = "%m/%d/%Y"),
+    AgeDisplay = ifelse(is.na(Age) | Age %in% c("N/A", "Unknown", ""), "Unknown", Age),
+    AgeGroup = age_group_bucket(Age),
+    RaceDisplay = ifelse(is.na(Race) | Race %in% c("", "N/A"), "Unknown", Race),
+    CaseStatusDisplay = ifelse(is.na(Case.Status) | Case.Status == "", "Unsolved", Case.Status),
+    DisplayName = ifelse(is.na(Victim) | Victim == "", "Unidentified Victim", Victim),
+    CoverageUrl = ifelse(is.na(URL) | URL == "", NA_character_, URL)
+  ) |>
+  transmute(
+    Year = as.character(Year),
+    Agency = Investigating.Agency,
+    Circumstance = Circumstance,
+    WardKey = WardKey,
+    Latitude = Latitude,
+    Longitude = Longitude,
+    Age = AgeDisplay,
+    AgeGroup = AgeGroup,
+    Race = RaceDisplay,
+    CaseStatus = CaseStatusDisplay,
+    Name = DisplayName,
+    Date = format(Date, "%m/%d/%Y"),
+    Address = Address,
+    CoverageUrl = CoverageUrl
+  )
+
+victim_summary_records <- lapply(seq_len(nrow(victim_summary_df)), function(i) {
+  list(
+    Year = victim_summary_df$Year[i],
+    Agency = victim_summary_df$Agency[i],
+    Circumstance = victim_summary_df$Circumstance[i],
+    WardKey = victim_summary_df$WardKey[i],
+    Latitude = victim_summary_df$Latitude[i],
+    Longitude = victim_summary_df$Longitude[i],
+    Age = victim_summary_df$Age[i],
+    AgeGroup = victim_summary_df$AgeGroup[i],
+    Race = victim_summary_df$Race[i],
+    CaseStatus = victim_summary_df$CaseStatus[i],
+    Name = victim_summary_df$Name[i],
+    Date = victim_summary_df$Date[i],
+    Address = victim_summary_df$Address[i],
+    CoverageUrl = victim_summary_df$CoverageUrl[i]
   )
 })
 
@@ -480,6 +617,80 @@ search_control_html <- "
 "
 
 # =============================================================================
+# Charts/Tabs HTML (Key Trends / Detailed Breakdowns / Victims, below the map)
+# =============================================================================
+
+charts_html <- "
+<div class='dashboard-charts'>
+  <div class='charts-tabs'>
+    <button class='charts-tab-btn active' data-tab='key-trends'>Key Trends</button>
+    <button class='charts-tab-btn' data-tab='detailed-breakdowns'>Detailed Breakdowns</button>
+    <button class='charts-tab-btn' data-tab='victims'>Victims</button>
+  </div>
+
+  <div class='charts-tab-panel active' id='tab-key-trends'>
+    <div class='charts-grid charts-grid-2col'>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Cumulative Homicides by Year</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-cumulative-year'></canvas></div>
+      </div>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Homicides by Year</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-homicides-year'></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class='charts-tab-panel' id='tab-detailed-breakdowns'>
+    <div class='charts-grid'>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Victims by Age Group</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-age-group'></canvas></div>
+      </div>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Victims by Race</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-race'></canvas></div>
+      </div>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Homicides by Circumstance</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-circumstance'></canvas></div>
+      </div>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Homicides by Agency</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-agency'></canvas></div>
+      </div>
+      <div class='chart-card'>
+        <div class='chart-card-title'>Homicides by Ward</div>
+        <div class='chart-card-canvas-wrap'><canvas id='chart-ward'></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class='charts-tab-panel' id='tab-victims'>
+    <div class='victims-table-wrap'>
+      <div class='victims-search-row'>
+        <input type='text' id='victims-search' placeholder='Search by name or address...'>
+        <span class='victims-count-label' id='victims-count-label'>0 victims shown</span>
+      </div>
+      <div class='victims-table-scroll'>
+        <table class='victims-table'>
+          <thead>
+            <tr>
+              <th>Name</th><th>Age</th><th>Date</th><th>Address</th><th>Status</th><th>Coverage</th>
+            </tr>
+          </thead>
+          <tbody id='victims-table-body'></tbody>
+        </table>
+      </div>
+      <div style='font-size:11px; color:#888; margin-top:8px;'>
+        Reflects the filters and any search radius currently applied to the map. Names appear as recorded by investigating agencies.
+      </div>
+    </div>
+  </div>
+</div>
+"
+
+# =============================================================================
 # Legend HTML
 # =============================================================================
 
@@ -518,7 +729,9 @@ legend_html <- paste0("
 <div class='custom-legend-box'>
   <strong>Legend</strong><br/>
   <span style='display:inline-block; width:14px; height:14px; border-radius:50%; background:#B22222; border:1px solid #8B0000; vertical-align:middle; margin-right:6px;'></span>
-  Homicide<br/>
+  Homicide (Unsolved)<br/>
+  <span style='display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a2b48; border:1px solid #0d1a2e; vertical-align:middle; margin-right:6px;'></span>
+  Homicide (Solved)<br/>
   <span style='display:inline-block; width:20px; height:0; border-top:3px solid #000000; vertical-align:middle; margin-right:6px;'></span>
   City Limits<br/>
   <span style='display:inline-block; width:20px; height:0; border-top:3px solid #A020F0; vertical-align:middle; margin-right:6px;'></span>
@@ -545,6 +758,10 @@ render_payload <- list(
   no_comparison    = no_comparison_geojson,
   current_year     = as.character(CURRENT_YEAR),
   incident_summary = incident_summary_records,
+  victim_summary   = victim_summary_records,
+  cumulative_by_year      = cumulative_by_year,
+  homicides_by_year       = homicides_by_year_summary,
+  today_doy               = today_doy_label,
   bbox = list(
     west  = unname(map_bbox["xmin"]),
     south = unname(map_bbox["ymin"]),
@@ -661,12 +878,14 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         var layer = L.geoJSON(geo, {
           pane: 'incidentsPane',
           pointToLayer: function(feature, latlng) {
+            var p = feature.properties || {};
+            var solved = p.is_solved === true || p.is_solved === 'true' || p.is_solved === 1;
             return L.circleMarker(latlng, {
               pane: 'incidentsPane',
               renderer: window.incidentsRenderer,
               radius: 4,
-              color: '#8B0000',
-              fillColor: '#B22222',
+              color: solved ? '#0d1a2e' : '#8B0000',
+              fillColor: solved ? '#1a2b48' : '#B22222',
               fillOpacity: 0.9,
               weight: 1,
               stroke: true
@@ -962,6 +1181,333 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
       };
 
+      /* =====================================================================
+         TABS: Key Trends / Detailed Breakdowns / Victims
+      ===================================================================== */
+
+      window.chartsTabInit = function() {
+        document.querySelectorAll('.charts-tab-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var tab = btn.getAttribute('data-tab');
+
+            document.querySelectorAll('.charts-tab-btn').forEach(function(b) {
+              b.classList.remove('active');
+            });
+            btn.classList.add('active');
+
+            document.querySelectorAll('.charts-tab-panel').forEach(function(p) {
+              p.classList.remove('active');
+            });
+            var panel = document.getElementById('tab-' + tab);
+            if (panel) { panel.classList.add('active'); }
+          });
+        });
+      };
+
+      /* =====================================================================
+         KEY TRENDS (static, filter-independent charts)
+      ===================================================================== */
+
+      window.chartColorForYear = function(year, isCurrent) {
+        if (isCurrent) { return '#B2182B'; }
+        var palette = ['#2166AC', '#4393C3', '#92C5DE', '#67A9CF', '#A6BDDB', '#D2B48C', '#999999'];
+        var idx = Math.abs(parseInt(year, 10)) % palette.length;
+        return palette[idx];
+      };
+
+      window.buildKeyTrendsCharts = function() {
+        var cumCanvas = document.getElementById('chart-cumulative-year');
+        if (cumCanvas && !window.chartCumulativeYear) {
+          var years = Object.keys(data.cumulative_by_year).sort();
+          var maxLen = 0;
+          years.forEach(function(y) {
+            maxLen = Math.max(maxLen, data.cumulative_by_year[y].values.length);
+          });
+          var labels = [];
+          for (var d = 1; d <= maxLen; d++) { labels.push(d); }
+
+          var datasets = years.map(function(y) {
+            var series = data.cumulative_by_year[y];
+            var vals = series.values.slice();
+            while (vals.length < maxLen) { vals.push(null); }
+            return {
+              label: y + (series.is_current ? ' (YTD): ' + series.final_total : ': ' + series.final_total),
+              data: vals,
+              borderColor: window.chartColorForYear(y, series.is_current),
+              backgroundColor: window.chartColorForYear(y, series.is_current),
+              borderWidth: series.is_current ? 3 : 1.5,
+              pointRadius: 0,
+              tension: 0,
+              spanGaps: true
+            };
+          });
+
+          window.chartCumulativeYear = new Chart(cumCanvas.getContext('2d'), {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'nearest', intersect: false },
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+              scales: {
+                x: { title: { display: true, text: 'Day of Year' }, ticks: { maxTicksLimit: 12 } },
+                y: { title: { display: true, text: 'Cumulative Homicides' }, beginAtZero: true }
+              }
+            }
+          });
+        }
+
+        var yearCanvas = document.getElementById('chart-homicides-year');
+        if (yearCanvas && !window.chartHomicidesYear) {
+          var yrs = data.homicides_by_year.map(function(r) { return r.year; });
+
+          window.chartHomicidesYear = new Chart(yearCanvas.getContext('2d'), {
+            data: {
+              labels: yrs,
+              datasets: [
+                {
+                  type: 'bar', label: 'JPD',
+                  data: data.homicides_by_year.map(function(r) { return r.jpd; }),
+                  backgroundColor: '#B2182B', stack: 'agency', yAxisID: 'y'
+                },
+                {
+                  type: 'bar', label: 'Capitol Police',
+                  data: data.homicides_by_year.map(function(r) { return r.capitol_police; }),
+                  backgroundColor: '#1a2b48', stack: 'agency', yAxisID: 'y'
+                },
+                {
+                  type: 'bar', label: 'Other Agencies',
+                  data: data.homicides_by_year.map(function(r) { return r.other_agencies; }),
+                  backgroundColor: '#92C5DE', stack: 'agency', yAxisID: 'y'
+                },
+                {
+                  type: 'line', label: 'Rate per 100,000 residents',
+                  data: data.homicides_by_year.map(function(r) { return r.rate_per_100k; }),
+                  borderColor: '#222222', backgroundColor: '#222222',
+                  borderWidth: 2, pointRadius: 3, yAxisID: 'y1', tension: 0.2
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+              scales: {
+                y:  { stacked: true, beginAtZero: true, position: 'left', title: { display: true, text: 'Homicide Incidents' } },
+                y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'per 100k' } }
+              }
+            }
+          });
+        }
+      };
+
+      /* =====================================================================
+         DETAILED BREAKDOWNS (filter-responsive charts)
+      ===================================================================== */
+
+      window.getFilteredVictimRecords = function() {
+        var checkedYears = window.getCheckedYears().map(String);
+        var checkedAgencies = window.getCheckedValues('.agency-toggle:checked');
+        var checkedCircumstances = window.getCheckedValues('.circumstance-toggle:checked');
+
+        return data.victim_summary.filter(function(r) {
+          var passesFilters = checkedYears.indexOf(r.Year) !== -1 &&
+            checkedAgencies.indexOf(r.Agency) !== -1 &&
+            checkedCircumstances.indexOf(r.Circumstance) !== -1;
+
+          if (!passesFilters) { return false; }
+
+          if (window.searchState.active) {
+            if (r.Latitude === null || r.Longitude === null ||
+                typeof r.Latitude === 'undefined' || typeof r.Longitude === 'undefined') {
+              return false;
+            }
+            return window.isWithinSearchBuffer(r.Latitude, r.Longitude);
+          }
+
+          return true;
+        });
+      };
+
+      window.countBy = function(records, keyFn) {
+        var counts = {};
+        records.forEach(function(r) {
+          var k = keyFn(r);
+          counts[k] = (counts[k] || 0) + 1;
+        });
+        return counts;
+      };
+
+      window.upsertBarChart = function(varName, canvasId, labels, values, colors, indexAxis) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) { return; }
+
+        if (window[varName]) {
+          window[varName].data.labels = labels;
+          window[varName].data.datasets[0].data = values;
+          window[varName].data.datasets[0].backgroundColor = colors;
+          window[varName].update();
+          return;
+        }
+
+        window[varName] = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{ label: 'Count', data: values, backgroundColor: colors }]
+          },
+          options: {
+            indexAxis: indexAxis || 'x',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true },
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      };
+
+      window.upsertPieChart = function(varName, canvasId, labels, values, colors) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) { return; }
+
+        if (window[varName]) {
+          window[varName].data.labels = labels;
+          window[varName].data.datasets[0].data = values;
+          window[varName].data.datasets[0].backgroundColor = colors;
+          window[varName].update();
+          return;
+        }
+
+        window[varName] = new Chart(canvas.getContext('2d'), {
+          type: 'pie',
+          data: {
+            labels: labels,
+            datasets: [{ data: values, backgroundColor: colors }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } }
+          }
+        });
+      };
+
+      window.paletteFor = function(n) {
+        var base = ['#1a2b48', '#B2182B', '#92C5DE', '#D2B48C', '#2166AC', '#F4A582', '#666666', '#A6BDDB'];
+        var out = [];
+        for (var i = 0; i < n; i++) { out.push(base[i % base.length]); }
+        return out;
+      };
+
+      window.updateDetailedBreakdowns = function() {
+        var panel = document.getElementById('tab-detailed-breakdowns');
+        if (!panel) { return; }
+
+        var records = window.getFilteredVictimRecords();
+
+        var ageOrder = ['0-17', '18-29', '30-49', '50+', 'Unknown'];
+        var ageCounts = window.countBy(records, function(r) { return r.AgeGroup; });
+        window.upsertBarChart(
+          'chartAgeGroup', 'chart-age-group',
+          ageOrder, ageOrder.map(function(k) { return ageCounts[k] || 0; }),
+          '#1a2b48'
+        );
+
+        var raceCounts = window.countBy(records, function(r) { return r.Race; });
+        var raceLabels = Object.keys(raceCounts).sort();
+        window.upsertPieChart(
+          'chartRace', 'chart-race',
+          raceLabels, raceLabels.map(function(k) { return raceCounts[k]; }),
+          window.paletteFor(raceLabels.length)
+        );
+
+        var circCounts = window.countBy(records, function(r) { return r.Circumstance; });
+        var circLabels = Object.keys(circCounts).sort(function(a, b) { return circCounts[b] - circCounts[a]; });
+        window.upsertBarChart(
+          'chartCircumstance', 'chart-circumstance',
+          circLabels, circLabels.map(function(k) { return circCounts[k]; }),
+          '#B2182B'
+        );
+
+        var agencyCounts = window.countBy(records, function(r) { return r.Agency; });
+        var agencyLabels = Object.keys(agencyCounts).sort(function(a, b) { return agencyCounts[b] - agencyCounts[a]; });
+        window.upsertPieChart(
+          'chartAgency', 'chart-agency',
+          agencyLabels, agencyLabels.map(function(k) { return agencyCounts[k]; }),
+          window.paletteFor(agencyLabels.length)
+        );
+
+        var wardCounts = window.countBy(records, function(r) { return r.WardKey || 'Unknown'; });
+        var wardLabels = Object.keys(wardCounts).sort();
+        window.upsertBarChart(
+          'chartWard', 'chart-ward',
+          wardLabels, wardLabels.map(function(k) { return wardCounts[k]; }),
+          '#B2182B', 'y'
+        );
+      };
+
+      /* =====================================================================
+         VICTIMS TABLE (filter-responsive, plus its own name/address search)
+      ===================================================================== */
+
+      window.victimsSearchTerm = '';
+
+      window.escapeHtml = function(str) {
+        var div = document.createElement('div');
+        div.textContent = str === null || typeof str === 'undefined' ? '' : String(str);
+        return div.innerHTML;
+      };
+
+      window.updateVictimsTable = function() {
+        var tbody = document.getElementById('victims-table-body');
+        var countLabel = document.getElementById('victims-count-label');
+        if (!tbody) { return; }
+
+        var records = window.getFilteredVictimRecords();
+
+        if (window.victimsSearchTerm) {
+          var term = window.victimsSearchTerm.toLowerCase();
+          records = records.filter(function(r) {
+            var name = (r.Name || '').toLowerCase();
+            var addr = (r.Address || '').toLowerCase();
+            return name.indexOf(term) !== -1 || addr.indexOf(term) !== -1;
+          });
+        }
+
+        records = records.slice().sort(function(a, b) {
+          var da = new Date(a.Date), db = new Date(b.Date);
+          return db - da;
+        });
+
+        if (countLabel) { countLabel.textContent = records.length + ' victim' + (records.length === 1 ? '' : 's') + ' shown'; }
+
+        if (records.length === 0) {
+          tbody.innerHTML = '<tr class=\"victims-empty-row\"><td colspan=\"6\">No victims match the current filters.</td></tr>';
+          return;
+        }
+
+        var rowsHtml = records.map(function(r) {
+          var statusClass = r.CaseStatus === 'Solved' ? 'victims-status-solved' : 'victims-status-unsolved';
+          var coverageHtml = r.CoverageUrl
+            ? '<a class=\"victims-coverage-link\" href=\"' + window.escapeHtml(r.CoverageUrl) + '\" target=\"_blank\" rel=\"noopener\">Link</a>'
+            : '';
+          return '<tr>' +
+            '<td>' + window.escapeHtml(r.Name) + '</td>' +
+            '<td>' + window.escapeHtml(r.Age) + '</td>' +
+            '<td>' + window.escapeHtml(r.Date) + '</td>' +
+            '<td>' + window.escapeHtml(r.Address) + '</td>' +
+            '<td class=\"' + statusClass + '\">' + window.escapeHtml(r.CaseStatus) + '</td>' +
+            '<td>' + coverageHtml + '</td>' +
+            '</tr>';
+        }).join('');
+
+        tbody.innerHTML = rowsHtml;
+      };
+
       window.searchState = { active: false, lat: null, lng: null, radiusMiles: null };
       window.searchBufferLayer = null;
       window.searchMarker = null;
@@ -1111,6 +1657,8 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         window.refreshWardComparison();
         window.updateMapSummary();
         window.enforcePaneOrder();
+        window.updateDetailedBreakdowns();
+        window.updateVictimsTable();
       };
 
       window.onYearChange = function() {
@@ -1136,6 +1684,17 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         }
       });
 
+      window.chartsTabInit();
+      window.buildKeyTrendsCharts();
+
+      var victimsSearchInput = document.getElementById('victims-search');
+      if (victimsSearchInput) {
+        victimsSearchInput.addEventListener('input', function() {
+          window.victimsSearchTerm = victimsSearchInput.value.trim();
+          window.updateVictimsTable();
+        });
+      }
+
       window.refreshFilterOptions();
       window.onAnyFilterChange();
     }
@@ -1148,8 +1707,8 @@ sidebar_css <- "
 * { box-sizing:border-box; }
 body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; }
 .dashboard-page {
-  display:flex; flex-direction:column; height:100vh; max-width:var(--dashboard-max-width);
-  margin:0 auto; overflow:hidden; background:white; box-shadow:0 0 12px rgba(0,0,0,0.15);
+  display:flex; flex-direction:column; min-height:100vh; max-width:var(--dashboard-max-width);
+  margin:0 auto; overflow:visible; background:white; box-shadow:0 0 12px rgba(0,0,0,0.15);
 }
 
 .dashboard-header {
@@ -1179,7 +1738,7 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 .dashboard-layout {
   display:flex; flex-direction:row;
   height:calc(100vh - var(--header-height)); width:100%;
-  flex-grow:1; min-height:0;
+  flex-shrink:0; min-height:0;
 }
 .dashboard-sidebar {
   width:22%; min-width:230px; max-width:320px; height:100%; overflow-y:auto;
@@ -1263,6 +1822,69 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 .trends-row:last-child { border-bottom:none; }
 .trends-row span:first-child { font-size:12px; color:#333; }
 .trends-value { font-weight:bold; font-size:14px; white-space:nowrap; }
+
+.dashboard-charts {
+  padding:16px; background:white; border-top:1px solid #ddd;
+}
+.charts-tabs {
+  display:flex; gap:4px; border-bottom:2px solid #eee; margin-bottom:16px; flex-wrap:wrap;
+}
+.charts-tab-btn {
+  background:none; border:none; cursor:pointer; padding:10px 16px; font-size:14px;
+  font-weight:bold; color:#555; border-bottom:3px solid transparent; margin-bottom:-2px;
+}
+.charts-tab-btn.active { color:#B2182B; border-bottom-color:#B2182B; }
+.charts-tab-panel { display:none; }
+.charts-tab-panel.active { display:block; }
+.charts-grid {
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;
+}
+.charts-grid-2col { grid-template-columns:repeat(2, 1fr); }
+.chart-card {
+  background:white; border:1px solid #eee; border-radius:6px; padding:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+.chart-card-title {
+  font-size:14px; font-weight:bold; text-align:center; margin-bottom:8px; color:#222;
+}
+.chart-card-canvas-wrap { position:relative; height:260px; }
+.chart-card-canvas-wrap canvas { max-width:100%; }
+.chart-card-toolbar {
+  display:flex; justify-content:flex-end; margin-bottom:4px;
+}
+.chart-toggle-btn {
+  font-size:11px; padding:3px 8px; border:1px solid #ccc; border-radius:3px;
+  background:#f7f7f7; cursor:pointer;
+}
+
+.victims-table-wrap { }
+.victims-search-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap;
+}
+.victims-search-row input[type=text] {
+  flex-grow:1; min-width:200px; padding:7px 10px; font-size:13px; border:1px solid #ccc; border-radius:4px;
+}
+.victims-count-label { font-size:12px; color:#666; white-space:nowrap; }
+.victims-table-scroll { max-height:480px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; }
+table.victims-table { width:100%; border-collapse:collapse; font-size:13px; }
+table.victims-table thead th {
+  background:#1a2b48; color:white; text-align:left; padding:8px 10px;
+  position:sticky; top:0; font-size:12px; font-weight:bold;
+}
+table.victims-table tbody td { padding:6px 10px; border-bottom:1px solid #eee; }
+table.victims-table tbody tr:hover { background:#f7f7f7; }
+.victims-status-solved { color:#1a2b48; font-weight:bold; }
+.victims-status-unsolved { color:#B2182B; font-weight:bold; }
+.victims-coverage-link { color:#2c7be5; text-decoration:none; }
+.victims-empty-row td { text-align:center; color:#888; padding:20px; }
+
+@media (max-width: 900px) {
+  .dashboard-charts { padding:12px; }
+  .charts-grid, .charts-grid-2col { grid-template-columns:1fr; }
+  .charts-tab-btn { padding:8px 10px; font-size:13px; }
+  .chart-card-canvas-wrap { height:220px; }
+  .victims-table-scroll { max-height:360px; }
+}
 "
 
 sidebar_html <- htmltools::tags$div(
@@ -1279,7 +1901,8 @@ page <- htmltools::tagList(
     htmltools::tags$meta(charset = "UTF-8"),
     htmltools::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0"),
     htmltools::tags$title("Jackson Homicide Dashboard"),
-    htmltools::tags$style(htmltools::HTML(sidebar_css))
+    htmltools::tags$style(htmltools::HTML(sidebar_css)),
+    htmltools::tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js")
   ),
   htmltools::tags$div(
     class = "dashboard-page",
@@ -1299,7 +1922,8 @@ page <- htmltools::tagList(
           )
         )
       )
-    )
+    ),
+    htmltools::HTML(charts_html)
   )
 )
 
