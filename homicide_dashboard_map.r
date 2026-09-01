@@ -1740,7 +1740,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
         var script = document.createElement('script');
         script.id = 'chartjs-cdn-script';
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js';
         script.onload = function() {
           window.chartJsReady = true;
           window.chartJsCallbacks.forEach(function(cb) {
