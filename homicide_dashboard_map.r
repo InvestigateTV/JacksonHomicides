@@ -1229,6 +1229,13 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         return months[ref.getMonth()];
       };
 
+      window.dayOfYearToMonthDayLabel = function(doy) {
+        var ref = new Date(2001, 0, 1);
+        ref.setDate(doy);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return months[ref.getMonth()] + ' ' + ref.getDate();
+      };
+
       window.todayLinePlugin = {
         id: 'todayLinePlugin',
         afterDraw: function(chart) {
@@ -1276,7 +1283,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
             var point = meta.data[lastIndex];
             if (!point) { return; }
             ctx.fillStyle = ds.borderColor;
-            ctx.fillText(ds.label, Math.min(point.x + 6, chartArea.right - 2), point.y);
+            ctx.fillText(ds.endLabelText || ds.label, Math.min(point.x + 6, chartArea.right - 2), point.y);
           });
           ctx.restore();
         }
@@ -1300,7 +1307,8 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
             var vals = series.values.slice();
             while (vals.length < 366) { vals.push(null); }
             return {
-              label: y + ': ' + series.final_total,
+              label: y,
+              endLabelText: y + ': ' + series.final_total,
               data: vals,
               borderColor: window.chartColorForYear(y, series.is_current),
               backgroundColor: window.chartColorForYear(y, series.is_current),
@@ -1320,16 +1328,41 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
               maintainAspectRatio: false,
               layout: { padding: { right: 45, top: 16 } },
               interaction: { mode: 'nearest', intersect: false },
-              plugins: { legend: { display: false } },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: function(items) {
+                      if (!items || !items.length) { return ''; }
+                      var doy = labels[items[0].dataIndex];
+                      return window.dayOfYearToMonthDayLabel(doy);
+                    },
+                    label: function(item) {
+                      var year = item.dataset.label;
+                      var count = item.formattedValue;
+                      return year + ': ' + count + ' cumulative homicides';
+                    }
+                  }
+                }
+              },
               scales: {
                 x: {
                   title: { display: false },
+                  /* Month-start day-of-year values (non-leap reference year),
+                     used so tick labels land exactly on the 1st of each
+                     month rather than wherever Chart.js autoSkip picks -
+                     this keeps the Today line visually aligned with the
+                     month labels instead of appearing offset from them. */
+                  afterBuildTicks: function(axis) {
+                    var monthStartDoys = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+                    axis.ticks = monthStartDoys.map(function(doy) {
+                      return { value: doy - 1 };
+                    });
+                  },
                   ticks: {
-                    callback: function(value, index) {
-                      return window.dayOfYearToMonthLabel(labels[index]);
-                    },
-                    maxTicksLimit: 12,
-                    autoSkip: true
+                    callback: function(value, index, ticks) {
+                      return window.dayOfYearToMonthLabel(labels[ticks[index].value]);
+                    }
                   }
                 },
                 y: { title: { display: true, text: 'Cumulative Homicides' }, beginAtZero: true }
