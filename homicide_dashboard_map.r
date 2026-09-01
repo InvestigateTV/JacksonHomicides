@@ -1220,23 +1220,87 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         return palette[idx];
       };
 
+      window.dayOfYearToMonthLabel = function(doy) {
+        /* Non-leap reference year so day-of-year -> month mapping is stable
+           regardless of whether the actual data year was a leap year. */
+        var ref = new Date(2001, 0, 1);
+        ref.setDate(doy);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return months[ref.getMonth()];
+      };
+
+      window.todayLinePlugin = {
+        id: 'todayLinePlugin',
+        afterDraw: function(chart) {
+          var doy = chart.$todayDoy;
+          if (!doy) { return; }
+          var xScale = chart.scales.x;
+          var yScale = chart.scales.y;
+          if (!xScale || !yScale) { return; }
+          var xPixel = xScale.getPixelForValue(doy - 1);
+          var ctx = chart.ctx;
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([4, 4]);
+          ctx.moveTo(xPixel, yScale.top);
+          ctx.lineTo(xPixel, yScale.bottom);
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#888888';
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#666666';
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Today', xPixel, yScale.top - 4);
+          ctx.restore();
+        }
+      };
+
+      window.endLabelPlugin = {
+        id: 'endLabelPlugin',
+        afterDraw: function(chart) {
+          var ctx = chart.ctx;
+          var chartArea = chart.chartArea;
+          ctx.save();
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          chart.data.datasets.forEach(function(ds, i) {
+            var meta = chart.getDatasetMeta(i);
+            if (!meta || meta.hidden) { return; }
+            var lastIndex = -1;
+            for (var j = ds.data.length - 1; j >= 0; j--) {
+              if (ds.data[j] !== null && typeof ds.data[j] !== 'undefined') { lastIndex = j; break; }
+            }
+            if (lastIndex === -1) { return; }
+            var point = meta.data[lastIndex];
+            if (!point) { return; }
+            ctx.fillStyle = ds.borderColor;
+            ctx.fillText(ds.label, Math.min(point.x + 6, chartArea.right - 2), point.y);
+          });
+          ctx.restore();
+        }
+      };
+
       window.buildKeyTrendsCharts = function() {
         var cumCanvas = document.getElementById('chart-cumulative-year');
         if (cumCanvas && !window.chartCumulativeYear) {
-          var years = Object.keys(data.cumulative_by_year).sort();
+          var allYears = Object.keys(data.cumulative_by_year).sort(function(a, b) { return b - a; });
+          var years = allYears.slice(0, 6).sort();
+
           var maxLen = 0;
           years.forEach(function(y) {
             maxLen = Math.max(maxLen, data.cumulative_by_year[y].values.length);
           });
           var labels = [];
-          for (var d = 1; d <= maxLen; d++) { labels.push(d); }
+          for (var d = 1; d <= 366; d++) { labels.push(d); }
 
           var datasets = years.map(function(y) {
             var series = data.cumulative_by_year[y];
             var vals = series.values.slice();
-            while (vals.length < maxLen) { vals.push(null); }
+            while (vals.length < 366) { vals.push(null); }
             return {
-              label: y + (series.is_current ? ' (YTD): ' + series.final_total : ': ' + series.final_total),
+              label: y + ': ' + series.final_total,
               data: vals,
               borderColor: window.chartColorForYear(y, series.is_current),
               backgroundColor: window.chartColorForYear(y, series.is_current),
@@ -1250,17 +1314,30 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           window.chartCumulativeYear = new Chart(cumCanvas.getContext('2d'), {
             type: 'line',
             data: { labels: labels, datasets: datasets },
+            plugins: [window.todayLinePlugin, window.endLabelPlugin],
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              layout: { padding: { right: 45, top: 16 } },
               interaction: { mode: 'nearest', intersect: false },
-              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+              plugins: { legend: { display: false } },
               scales: {
-                x: { title: { display: true, text: 'Day of Year' }, ticks: { maxTicksLimit: 12 } },
+                x: {
+                  title: { display: false },
+                  ticks: {
+                    callback: function(value, index) {
+                      return window.dayOfYearToMonthLabel(labels[index]);
+                    },
+                    maxTicksLimit: 12,
+                    autoSkip: true
+                  }
+                },
                 y: { title: { display: true, text: 'Cumulative Homicides' }, beginAtZero: true }
               }
             }
           });
+          window.chartCumulativeYear.$todayDoy = data.today_doy;
+          window.chartCumulativeYear.update();
         }
 
         var yearCanvas = document.getElementById('chart-homicides-year');
