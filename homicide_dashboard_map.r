@@ -34,8 +34,45 @@ Wards <- read_sf(WARDS_PATH) |>
 city_boundary_sf <- read_sf(CITY_BOUNDARY_PATH) |> st_as_sf()
 CCID_boundary_sf <- read_sf(CCID_BOUNDARY_PATH) |> st_as_sf()
 
+# ---------------------------------------------------------------------------
+# SharePoint "share" links (the ":x:" viewer-style URLs) resolve to the
+# interactive Office Online web app by default, not the raw file bytes -
+# download.file() against that URL downloads an HTML page, not an .xlsx,
+# which readxl then fails to open with a "cannot be opened" zip error.
+# Appending &download=1 (or ?download=1 if there's no query string yet)
+# forces SharePoint to serve the actual file content instead.
+# ---------------------------------------------------------------------------
+
+homicide_download_url <- HOMICIDE_DATA_URL
+if (!grepl("download=1", homicide_download_url, fixed = TRUE)) {
+  separator <- if (grepl("?", homicide_download_url, fixed = TRUE)) "&" else "?"
+  homicide_download_url <- paste0(homicide_download_url, separator, "download=1")
+}
+
 homicide_data_path <- tempfile(fileext = ".xlsx")
-download.file(HOMICIDE_DATA_URL, destfile = homicide_data_path, mode = "wb", quiet = TRUE)
+download.file(homicide_download_url, destfile = homicide_data_path, mode = "wb", quiet = TRUE)
+
+# Fail fast with a clear message if what we downloaded isn't actually a
+# valid Excel/zip file (e.g. SharePoint served an HTML/login page instead) -
+# this turns a cryptic "zip file cannot be opened" error inside readxl into
+# an actionable one that names the real problem.
+file_header <- readBin(homicide_data_path, what = "raw", n = 4)
+is_zip_signature <- length(file_header) == 4 &&
+  file_header[1] == 0x50 && file_header[2] == 0x4B  # "PK" zip magic bytes
+
+if (!is_zip_signature) {
+  downloaded_preview <- tryCatch(
+    paste(readLines(homicide_data_path, n = 5, warn = FALSE), collapse = " "),
+    error = function(e) "<unreadable binary content>"
+  )
+  stop(
+    "Downloaded HOMICIDE_DATA_URL did not return a valid Excel (.xlsx) file. ",
+    "This usually means the SharePoint share link needs a direct-download ",
+    "URL rather than a viewer link. First bytes of what was downloaded: ",
+    substr(downloaded_preview, 1, 300)
+  )
+}
+
 JacksonHomicides <- readxl::read_excel(homicide_data_path, sheet = "Homicides")
 
 # ---------------------------------------------------------------------------
