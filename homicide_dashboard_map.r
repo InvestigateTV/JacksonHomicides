@@ -154,26 +154,25 @@ parse_homicide_date <- function(x) {
 # INCIDENT-LEVEL TABLE (one row per homicide, not per victim)
 # =============================================================================
 
+# NOTE: only columns actually referenced elsewhere in this script are kept
+# here - several fields from the original CSV schema (Ward, Precinct, City,
+# State, Street, Premises.Type, Month, Day, Arrest.made) were carried
+# through historically but never actually used downstream, and the new
+# Excel-based "Homicides" sheet does not necessarily include all of them
+# (this is what caused the "object 'Ward' not found" error). If any of
+# these are needed again later, add them back here AND make sure the
+# source sheet actually has a matching column first.
 homicides_incidents <- homicides_sf |>
   st_drop_geometry() |>
   group_by(UUID) |>
   summarise(
     Date                  = first(Date),
     Year                  = first(Year),
-    Month                 = first(Month),
-    Day                   = first(Day),
     WardKey               = first(WardKey),
-    Ward                  = first(Ward),
-    Precinct              = first(Precinct),
-    City                  = first(City),
-    State                 = first(State),
     Address               = first(Address),
-    Street                = first(Street),
-    Premises.Type         = first(Premises.Type),
     Circumstance          = first(Circumstance),
     Investigating.Agency  = first(Investigating.Agency),
     Case.Status           = first(Case.Status),
-    Arrest.made           = first(Arrest.made),
     Latitude              = first(Latitude),
     Longitude             = first(Longitude),
     victim_count          = n(),
