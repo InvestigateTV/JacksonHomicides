@@ -682,7 +682,7 @@ circumstance_control_html <- "
 
 clearance_control_html <- "
 <div class='sidebar-section'>
-  <strong>Clearance Rates (Selected Data)</strong><br/>
+  <div class='clearance-title'>Clearance Rates (Selected Data)</div>
   <div id='clearance-rate-table'></div>
   <div class='clearance-note-row'>
     <a href='#' id='clearance-note-link'>* Data Accuracy Note</a>
@@ -775,8 +775,10 @@ clearance_modal_html <- "
   <div class='modal-content'>
     <span class='modal-close' id='clearance-modal-close'>&times;</span>
     <h2>Data Accuracy &amp; Clearance Rates</h2>
-    <p>Clearance rates shown here are calculated from the case status (\"Solved\" vs. \"Unsolved\") recorded for each victim in the underlying data, filtered to match whatever Year, Agency, Circumstance, and location search options are currently selected.</p>
-    <p>A case is marked Solved based on the most recent status available at the time this dashboard was last updated. Case statuses can change over time as investigations continue, so these figures represent a snapshot rather than a final determination.</p>
+    <p>Clearance rates shown here are calculated at the incident level (one determination per homicide case, not per victim), filtered to match whatever Year, Agency, Circumstance, and location search options are currently selected.</p>
+    <p>For 2016 to 2018 data, individual case status was obtained from daily reports and press releases by the Jackson Police Department.</p>
+    <p>For 2019 to the present, that clearance rate data comes directly from JPD to ensure updated solve rate numbers.</p>
+    <p>The figures shown here represent the most accurate analysis possible based on those two methods provided to WLBT.</p>
   </div>
 </div>
 "
@@ -1750,10 +1752,15 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         var container = document.getElementById('clearance-rate-table');
         if (!container) { return; }
 
-        var records = window.getFilteredVictimRecords();
+        /* Incident-level (not victim-level): whether a case is solved is a
+           property of the investigation itself, one determination per
+           homicide event - counting it per victim would over-weight
+           multi-victim incidents in the resulting rate. */
+        var victimRecords = window.getFilteredVictimRecords();
+        var incidentRecords = window.dedupeToIncidents(victimRecords);
 
         var byAgency = {};
-        records.forEach(function(r) {
+        incidentRecords.forEach(function(r) {
           if (!byAgency[r.Agency]) { byAgency[r.Agency] = { solved: 0, total: 0 }; }
           byAgency[r.Agency].total += 1;
           if (r.CaseStatus === 'Solved') { byAgency[r.Agency].solved += 1; }
@@ -1771,13 +1778,13 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           var rate = d.total > 0 ? (d.solved / d.total) * 100 : 0;
           return '<tr>' +
             '<td>' + window.escapeHtml(a) + '</td>' +
-            '<td class=\"clearance-rate-cell\">' + rate.toFixed(1) + '% <span class=\"clearance-count\">(' + d.solved + '/' + d.total + ')</span></td>' +
+            '<td class=\"clearance-rate-cell\">' + rate.toFixed(1) + '%</td>' +
             '</tr>';
         }).join('');
 
         container.innerHTML =
           '<table class=\"clearance-table\">' +
-          '<tr><th>Agency</th><th>Rate (Count)</th></tr>' +
+          '<tr><th>Agency</th><th>Rate</th></tr>' +
           rowsHtml +
           '</table>';
       };
@@ -2257,16 +2264,18 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   text-align:center; margin-bottom:8px;
 }
 
+.clearance-title {
+  font-size:20px; font-weight:700;
+  text-align:center; line-height:1.15; margin-bottom:8px;
+}
 .clearance-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
 .clearance-table th {
-  text-align:left; font-size:11px; font-weight:normal; color:#666;
+  text-align:left; font-size:11px; font-weight:700; color:#666;
   padding-bottom:4px; border-bottom:1px solid #eee;
 }
 .clearance-table th:last-child { text-align:right; }
-.clearance-table td { padding:4px 0; border-bottom:1px solid #f2f2f2; }
-.clearance-table td:first-child { color:#2c7be5; }
+.clearance-table td { padding:4px 0; border-bottom:1px solid #f2f2f2; color:#222222; }
 .clearance-rate-cell { text-align:right; font-weight:700; }
-.clearance-count { font-weight:normal; color:#666; font-size:11px; }
 .clearance-empty { color:#888; font-size:12px; padding:6px 0; }
 .clearance-note-row { text-align:right; margin-top:6px; }
 .clearance-note-row a { font-size:11px; color:#2c7be5; text-decoration:none; }
@@ -2361,6 +2370,7 @@ sidebar_html <- htmltools::tags$div(
   htmltools::HTML(year_control_html),
   htmltools::HTML(agency_control_html),
   htmltools::HTML(circumstance_control_html),
+  htmltools::tags$hr(class = "sidebar-section-divider"),
   htmltools::HTML(clearance_control_html),
   htmltools::tags$hr(class = "sidebar-section-divider"),
   htmltools::HTML(trends_control_html)
