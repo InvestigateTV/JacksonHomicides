@@ -274,7 +274,7 @@ five_year_month_to_date_counts <- sapply(five_year_avg_years, function(Y) {
 })
 
 five_year_avg_label <- round(mean(five_year_month_to_date_counts), 1)
-month_to_date_label <- paste0(format(TODAY, "%B"), " (to date)")
+month_to_date_label <- format(TODAY, "%b")
 
 # =============================================================================
 # KEY TRENDS CHART DATA (static, filter-independent; feeds the "Key Trends" tab)
@@ -1391,7 +1391,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.fillStyle = '#666666';
-          ctx.font = '10px Arial';
+          ctx.font = \"10px 'Inter', Arial, sans-serif\";
           ctx.textAlign = 'center';
           ctx.fillText('Today', xPixel, yScale.top - 4);
           ctx.restore();
@@ -1404,7 +1404,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           var ctx = chart.ctx;
           var chartArea = chart.chartArea;
           ctx.save();
-          ctx.font = 'bold 10px Arial';
+          ctx.font = \"bold 10px 'Inter', Arial, sans-serif\";
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
           chart.data.datasets.forEach(function(ds, i) {
@@ -1984,6 +1984,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         script.id = 'chartjs-cdn-script';
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js';
         script.onload = function() {
+          if (typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = \"'Inter', Arial, sans-serif\";
+          }
           window.chartJsReady = true;
           window.chartJsCallbacks.forEach(function(cb) {
             try { cb(); } catch (e) { console.error('Chart.js callback failed:', e); }
@@ -2033,7 +2036,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 sidebar_css <- "
 :root { --header-height: 64px; --dashboard-max-width: 1600px; }
 * { box-sizing:border-box; }
-body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; }
+body { margin:0; padding:0; font-family: 'Inter', Arial, sans-serif; background:#e9e9e9; }
 .dashboard-page {
   display:flex; flex-direction:column; min-height:100vh; max-width:var(--dashboard-max-width);
   margin:0 auto; overflow:visible; background:white; box-shadow:0 0 12px rgba(0,0,0,0.15);
@@ -2160,11 +2163,22 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 }
 .trends-box-full { flex-basis:100%; }
 .trends-box-half { flex-basis:calc(50% - 4px); flex-grow:1; }
-.trends-box-label { font-size:11px; color:#666; margin-bottom:4px; }
-.trends-box-value { font-size:20px; font-weight:bold; color:#222222; }
+.trends-box-label {
+  font-size:11px; color:#666;
+  margin-bottom:4px; white-space:nowrap;
+}
+.trends-box-value {
+  font-size:20px; font-weight:700; color:#222222;
+}
 .trends-box-value-accent { color:#B2182B; }
-.trends-title { font-size:20px; font-weight:bold; text-align:center; }
-.trends-subtitle { font-size:11px; color:#666; text-align:center; margin-bottom:8px; }
+.trends-title {
+  font-size:20px; font-weight:700;
+  text-align:center; line-height:1.15; margin-bottom:2px;
+}
+.trends-subtitle {
+  font-size:11px; color:#666;
+  text-align:center; margin-bottom:8px;
+}
 
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
@@ -2244,6 +2258,9 @@ page <- htmltools::tagList(
     htmltools::tags$meta(charset = "UTF-8"),
     htmltools::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0"),
     htmltools::tags$title("Jackson Homicide Dashboard"),
+    htmltools::tags$link(rel = "preconnect", href = "https://fonts.googleapis.com"),
+    htmltools::tags$link(rel = "preconnect", href = "https://fonts.gstatic.com", crossorigin = ""),
+    htmltools::tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"),
     htmltools::tags$style(htmltools::HTML(sidebar_css))
   ),
   htmltools::tags$div(
