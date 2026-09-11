@@ -857,13 +857,13 @@ legend_html <- paste0("
   transform: scale(0.8); transform-origin: top right;
 }
 .map-summary-box .summary-block-left { text-align:left; }
+.summary-title { font-size:15px; font-weight:bold; text-align:center; }
+.summary-hr { margin:6px 0; border:none; border-top:1px solid #bbb; }
 .summary-count { font-size:24px; font-weight:bold; }
 .summary-subcount { font-size:12px; color:#333; margin-top:2px; }
 .summary-location-note { color:#2c7be5; font-size:13px; margin-bottom:4px; }
-.summary-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:2px; }
-.summary-table th { font-size:11px; font-weight:normal; color:#666; text-align:right; }
-.summary-table th:first-child { text-align:left; }
-.summary-table td { padding:1px 0; }
+.summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:13px; }
+.summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:6px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -876,7 +876,7 @@ legend_html <- paste0("
   City Limits<br/>
   <span style='display:inline-block; width:20px; height:0; border-top:3px solid #A020F0; vertical-align:middle; margin-right:6px;'></span>
   CCID Boundary<br/>
-  <hr style='margin:6px 0;'>
+  <hr class='summary-hr'>
   <strong>Year Over Year Trend</strong><br/>
   ", velocity_rows, "
 </div>
@@ -1255,13 +1255,11 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           var vc = r.VictimCount || 1;
           totalVictims += vc;
 
-          if (!byYear[r.Year]) { byYear[r.Year] = { incidents: 0, victims: 0 }; }
-          byYear[r.Year].incidents += 1;
-          byYear[r.Year].victims += vc;
+          if (!byYear[r.Year]) { byYear[r.Year] = 0; }
+          byYear[r.Year] += vc;
 
-          if (!byAgency[r.Agency]) { byAgency[r.Agency] = { incidents: 0, victims: 0 }; }
-          byAgency[r.Agency].incidents += 1;
-          byAgency[r.Agency].victims += vc;
+          if (!byAgency[r.Agency]) { byAgency[r.Agency] = 0; }
+          byAgency[r.Agency] += vc;
         });
 
         var currentYearNum = parseInt(data.current_year, 10);
@@ -1271,25 +1269,17 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           return (parseInt(y, 10) === currentYearNum) ? (y + ' (YTD)') : y;
         });
         var yearRowsHtml = yearLabels.map(function(y, i) {
-          var d = byYear[y] || { incidents: 0, victims: 0 };
-          return '<tr><td style=\"text-align:left;\">' + yearDisplayLabels[i] + '</td>' +
-            '<td style=\"text-align:right;\">' + d.incidents + '</td>' +
-            '<td style=\"text-align:right;\">' + d.victims + '</td></tr>';
+          var v = byYear[y] || 0;
+          return '<div class=\"summary-detail-row\"><span>' + yearDisplayLabels[i] + '</span><span>' + v + '</span></div>';
         }).join('');
-        var yearTableHtml = '<table class=\"summary-table\">' +
-          '<tr><th></th><th>Inc.</th><th>Vic.</th></tr>' + yearRowsHtml + '</table>';
 
         var agencyLabels = Object.keys(byAgency).sort(function(a, b) {
-          return byAgency[b].incidents - byAgency[a].incidents;
+          return byAgency[b] - byAgency[a];
         });
         var agencyRowsHtml = agencyLabels.map(function(a) {
-          var d = byAgency[a];
-          return '<tr><td style=\"text-align:left;\">' + a + '</td>' +
-            '<td style=\"text-align:right;\">' + d.incidents + '</td>' +
-            '<td style=\"text-align:right;\">' + d.victims + '</td></tr>';
+          var v = byAgency[a];
+          return '<div class=\"summary-detail-row\"><span>' + a + '</span><span>' + v + '</span></div>';
         }).join('');
-        var agencyTableHtml = '<table class=\"summary-table\">' +
-          '<tr><th></th><th>Inc.</th><th>Vic.</th></tr>' + agencyRowsHtml + '</table>';
 
         var locationNote = '';
         if (window.searchState.active) {
@@ -1299,16 +1289,18 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         }
 
         var html =
+          '<div class=\"summary-title\">Map Summary</div>' +
+          '<hr class=\"summary-hr\">' +
           locationNote +
           '<div class=\"summary-count\">' + totalVictims + '</div>' +
-          'Victims Shown' +
-          '<div class=\"summary-subcount\">Homicide Incidents: ' + records.length + '</div>' +
+          'Homicides Shown' +
           '<div class=\"summary-block-left\">' +
-          '<hr style=\"margin:4px 0;\">' +
-          '<strong>By Year:</strong>' + (yearLabels.length ? yearTableHtml : '<br/>None selected') +
-          '<hr style=\"margin:4px 0;\">' +
-          '<strong>By Agency:</strong>' + (agencyLabels.length ? agencyTableHtml : '<br/>None selected') +
-          '</div>';
+          '<hr class=\"summary-hr\">' +
+          '<strong>By Year:</strong>' + (yearLabels.length ? yearRowsHtml : '<br/>None selected') +
+          '<hr class=\"summary-hr\">' +
+          '<strong>By Agency:</strong>' + (agencyLabels.length ? agencyRowsHtml : '<br/>None selected') +
+          '</div>' +
+          '<div class=\"summary-marker-note\">Click a marker for details</div>';
 
         var el = document.getElementById('map-summary');
         if (el) { el.innerHTML = html; }
@@ -1391,7 +1383,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.fillStyle = '#666666';
-          ctx.font = \"10px 'Inter', Arial, sans-serif\";
+          ctx.font = \"10px 'Inter', 'Helvetica Neue', Arial, sans-serif\";
           ctx.textAlign = 'center';
           ctx.fillText('Today', xPixel, yScale.top - 4);
           ctx.restore();
@@ -1404,7 +1396,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           var ctx = chart.ctx;
           var chartArea = chart.chartArea;
           ctx.save();
-          ctx.font = \"bold 10px 'Inter', Arial, sans-serif\";
+          ctx.font = \"bold 10px 'Inter', 'Helvetica Neue', Arial, sans-serif\";
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
           chart.data.datasets.forEach(function(ds, i) {
@@ -1985,7 +1977,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js';
         script.onload = function() {
           if (typeof Chart !== 'undefined') {
-            Chart.defaults.font.family = \"'Inter', Arial, sans-serif\";
+            Chart.defaults.font.family = \"'Inter', 'Helvetica Neue', Arial, sans-serif\";
           }
           window.chartJsReady = true;
           window.chartJsCallbacks.forEach(function(cb) {
@@ -2036,7 +2028,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 sidebar_css <- "
 :root { --header-height: 64px; --dashboard-max-width: 1600px; }
 * { box-sizing:border-box; }
-body { margin:0; padding:0; font-family: 'Inter', Arial, sans-serif; background:#e9e9e9; }
+body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; background:#e9e9e9; }
 .dashboard-page {
   display:flex; flex-direction:column; min-height:100vh; max-width:var(--dashboard-max-width);
   margin:0 auto; overflow:visible; background:white; box-shadow:0 0 12px rgba(0,0,0,0.15);
@@ -2127,6 +2119,9 @@ body { margin:0; padding:0; font-family: 'Inter', Arial, sans-serif; background:
   background:white; padding:10px 12px; margin-bottom:10px; border-radius:4px;
   box-shadow:0 1px 3px rgba(0,0,0,0.15); font-size:13px; line-height:1.6;
 }
+.sidebar-section-divider {
+  border:none; border-top:2px solid #ccc; margin:16px 0;
+}
 .sidebar-scroll { max-height:70px; overflow-y:auto; }
 .sidebar-section-small { padding:8px 10px; }
 .sidebar-scroll-small { max-height:70px; overflow-y:auto; }
@@ -2164,7 +2159,7 @@ body { margin:0; padding:0; font-family: 'Inter', Arial, sans-serif; background:
 .trends-box-full { flex-basis:100%; }
 .trends-box-half { flex-basis:calc(50% - 4px); flex-grow:1; }
 .trends-box-label {
-  font-size:11px; color:#666;
+  font-size:11px; color:#666; font-weight:700;
   margin-bottom:4px; white-space:nowrap;
 }
 .trends-box-value {
@@ -2176,7 +2171,7 @@ body { margin:0; padding:0; font-family: 'Inter', Arial, sans-serif; background:
   text-align:center; line-height:1.15; margin-bottom:2px;
 }
 .trends-subtitle {
-  font-size:11px; color:#666;
+  font-size:11px; color:#666; font-weight:700;
   text-align:center; margin-bottom:8px;
 }
 
@@ -2250,6 +2245,7 @@ sidebar_html <- htmltools::tags$div(
   htmltools::HTML(year_control_html),
   htmltools::HTML(agency_control_html),
   htmltools::HTML(circumstance_control_html),
+  htmltools::tags$hr(class = "sidebar-section-divider"),
   htmltools::HTML(trends_control_html)
 )
 
