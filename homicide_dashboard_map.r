@@ -847,8 +847,9 @@ legend_html <- paste0("
 <style>
 .custom-legend-box {
   background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:12px; line-height:1.5;
+  font-size:12px; line-height:1.6;
 }
+.custom-legend-box strong { font-weight:700; }
 .leaflet-control.custom-legend-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 .map-summary-box {
   background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
