@@ -680,6 +680,16 @@ circumstance_control_html <- "
 </div>
 "
 
+clearance_control_html <- "
+<div class='sidebar-section'>
+  <strong>Clearance Rates (Selected Data)</strong><br/>
+  <div id='clearance-rate-table'></div>
+  <div class='clearance-note-row'>
+    <a href='#' id='clearance-note-link'>* Data Accuracy Note</a>
+  </div>
+</div>
+"
+
 # Dynamic accent coloring: red only when the trend is unfavorable
 # (YoY increase, or this month running above the 5-year seasonal average).
 pct_change_accent_class <- if (!is.na(citywide_pct_change) && citywide_pct_change > 0) "trends-box-value-accent" else ""
@@ -759,6 +769,17 @@ search_control_html <- "
 # =============================================================================
 # Charts/Tabs HTML (Key Trends / Detailed Breakdowns / Victims, below the map)
 # =============================================================================
+
+clearance_modal_html <- "
+<div id='clearance-modal-overlay' class='modal-overlay'>
+  <div class='modal-content'>
+    <span class='modal-close' id='clearance-modal-close'>&times;</span>
+    <h2>Data Accuracy &amp; Clearance Rates</h2>
+    <p>Clearance rates shown here are calculated from the case status (\"Solved\" vs. \"Unsolved\") recorded for each victim in the underlying data, filtered to match whatever Year, Agency, Circumstance, and location search options are currently selected.</p>
+    <p>A case is marked Solved based on the most recent status available at the time this dashboard was last updated. Case statuses can change over time as investigations continue, so these figures represent a snapshot rather than a final determination.</p>
+  </div>
+</div>
+"
 
 charts_html <- "
 <div class='dashboard-charts'>
@@ -1725,6 +1746,42 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         return div.innerHTML;
       };
 
+      window.updateClearanceRate = function() {
+        var container = document.getElementById('clearance-rate-table');
+        if (!container) { return; }
+
+        var records = window.getFilteredVictimRecords();
+
+        var byAgency = {};
+        records.forEach(function(r) {
+          if (!byAgency[r.Agency]) { byAgency[r.Agency] = { solved: 0, total: 0 }; }
+          byAgency[r.Agency].total += 1;
+          if (r.CaseStatus === 'Solved') { byAgency[r.Agency].solved += 1; }
+        });
+
+        var agencyLabels = Object.keys(byAgency).sort();
+
+        if (agencyLabels.length === 0) {
+          container.innerHTML = '<div class=\"clearance-empty\">No data available</div>';
+          return;
+        }
+
+        var rowsHtml = agencyLabels.map(function(a) {
+          var d = byAgency[a];
+          var rate = d.total > 0 ? (d.solved / d.total) * 100 : 0;
+          return '<tr>' +
+            '<td>' + window.escapeHtml(a) + '</td>' +
+            '<td class=\"clearance-rate-cell\">' + rate.toFixed(1) + '% <span class=\"clearance-count\">(' + d.solved + '/' + d.total + ')</span></td>' +
+            '</tr>';
+        }).join('');
+
+        container.innerHTML =
+          '<table class=\"clearance-table\">' +
+          '<tr><th>Agency</th><th>Rate (Count)</th></tr>' +
+          rowsHtml +
+          '</table>';
+      };
+
       window.updateVictimsTable = function() {
         var tbody = document.getElementById('victims-table-body');
         var countLabel = document.getElementById('victims-count-label');
@@ -1930,6 +1987,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         window.safeCall('enforcePaneOrder', window.enforcePaneOrder);
         window.safeCall('updateDetailedBreakdowns', window.updateDetailedBreakdowns);
         window.safeCall('updateVictimsTable', window.updateVictimsTable);
+        window.safeCall('updateClearanceRate', window.updateClearanceRate);
       };
 
       window.onYearChange = function() {
@@ -1956,6 +2014,24 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       });
 
       window.chartsTabInit();
+
+      var clearanceNoteLink = document.getElementById('clearance-note-link');
+      var clearanceModalOverlay = document.getElementById('clearance-modal-overlay');
+      var clearanceModalClose = document.getElementById('clearance-modal-close');
+      if (clearanceNoteLink && clearanceModalOverlay && clearanceModalClose) {
+        clearanceNoteLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          clearanceModalOverlay.classList.add('modal-overlay-active');
+        });
+        clearanceModalClose.addEventListener('click', function() {
+          clearanceModalOverlay.classList.remove('modal-overlay-active');
+        });
+        clearanceModalOverlay.addEventListener('click', function(e) {
+          if (e.target === clearanceModalOverlay) {
+            clearanceModalOverlay.classList.remove('modal-overlay-active');
+          }
+        });
+      }
 
       window.chartJsCallbacks = [];
       window.chartJsReady = false;
@@ -2108,7 +2184,7 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .sidebar-section { padding:12px 14px; margin-bottom:14px; font-size:14px; }
   .sidebar-scroll, .sidebar-scroll-small { max-height:110px; }
   .dashboard-map { width:100%; height:60vh; min-height:350px; order:1; }
-  .custom-legend-box { font-size:10px; padding:5px 7px; }
+  .custom-legend-box { font-size:10px; padding:5px 7px; width:150px; max-width:150px; }
   .map-summary-box { font-size:11px; padding:5px 7px; width:110px; max-width:110px; }
   .summary-title { font-size:12px; }
   .summary-count { font-size:17px; }
@@ -2181,6 +2257,40 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   text-align:center; margin-bottom:8px;
 }
 
+.clearance-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
+.clearance-table th {
+  text-align:left; font-size:11px; font-weight:normal; color:#666;
+  padding-bottom:4px; border-bottom:1px solid #eee;
+}
+.clearance-table th:last-child { text-align:right; }
+.clearance-table td { padding:4px 0; border-bottom:1px solid #f2f2f2; }
+.clearance-table td:first-child { color:#2c7be5; }
+.clearance-rate-cell { text-align:right; font-weight:700; }
+.clearance-count { font-weight:normal; color:#666; font-size:11px; }
+.clearance-empty { color:#888; font-size:12px; padding:6px 0; }
+.clearance-note-row { text-align:right; margin-top:6px; }
+.clearance-note-row a { font-size:11px; color:#2c7be5; text-decoration:none; }
+.clearance-note-row a:hover { text-decoration:underline; }
+
+.modal-overlay {
+  display:none; position:fixed; z-index:2000; left:0; top:0;
+  width:100%; height:100%; overflow:auto; background:rgba(0,0,0,0.5);
+  justify-content:center; align-items:center;
+}
+.modal-overlay.modal-overlay-active { display:flex; }
+.modal-content {
+  background:#fff; padding:20px; border-radius:8px;
+  width:90%; max-width:500px; position:relative;
+  box-shadow:0 4px 8px rgba(0,0,0,0.2), 0 6px 20px rgba(0,0,0,0.19);
+}
+.modal-content h2 { margin-top:0; font-size:18px; }
+.modal-content p { line-height:1.6; font-size:14px; color:#444; }
+.modal-close {
+  color:#aaa; position:absolute; top:10px; right:16px;
+  font-size:26px; font-weight:bold; line-height:1; cursor:pointer;
+}
+.modal-close:hover { color:#333; }
+
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
 }
@@ -2251,6 +2361,7 @@ sidebar_html <- htmltools::tags$div(
   htmltools::HTML(year_control_html),
   htmltools::HTML(agency_control_html),
   htmltools::HTML(circumstance_control_html),
+  htmltools::HTML(clearance_control_html),
   htmltools::tags$hr(class = "sidebar-section-divider"),
   htmltools::HTML(trends_control_html)
 )
@@ -2284,7 +2395,8 @@ page <- htmltools::tagList(
         )
       )
     ),
-    htmltools::HTML(charts_html)
+    htmltools::HTML(charts_html),
+    htmltools::HTML(clearance_modal_html)
   )
 )
 
