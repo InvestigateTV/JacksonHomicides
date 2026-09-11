@@ -682,7 +682,8 @@ circumstance_control_html <- "
 
 clearance_control_html <- "
 <div class='sidebar-section'>
-  <div class='clearance-title'>Clearance Rates (Selected Data)</div>
+  <div class='clearance-title'>Clearance Rates</div>
+  <div class='clearance-subtitle'>Selected Data</div>
   <div id='clearance-rate-table'></div>
   <div class='clearance-note-row'>
     <a href='#' id='clearance-note-link'>* Data Accuracy Note</a>
@@ -2256,7 +2257,7 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 .trends-box-value-accent { color:#B2182B; }
 .trends-title {
-  font-size:20px; font-weight:700;
+  font-size:16px; font-weight:700;
   text-align:center; line-height:1.15; margin-bottom:2px;
 }
 .trends-subtitle {
@@ -2265,8 +2266,12 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 
 .clearance-title {
-  font-size:20px; font-weight:700;
-  text-align:center; line-height:1.15; margin-bottom:8px;
+  font-size:16px; font-weight:700;
+  text-align:center; line-height:1.15; margin-bottom:2px;
+}
+.clearance-subtitle {
+  font-size:11px; color:#666; font-weight:700;
+  text-align:center; margin-bottom:8px;
 }
 .clearance-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
 .clearance-table th {
