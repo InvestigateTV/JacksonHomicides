@@ -680,14 +680,19 @@ circumstance_control_html <- "
 </div>
 "
 
+# Dynamic accent coloring: red only when the trend is unfavorable
+# (YoY increase, or this month running above the 5-year seasonal average).
+pct_change_accent_class <- if (!is.na(citywide_pct_change) && citywide_pct_change > 0) "trends-box-value-accent" else ""
+month_accent_class <- if (current_month_count > five_year_avg_label) "trends-box-value-accent" else ""
+
 trends_control_html <- paste0("
 <div class='sidebar-section'>
-  <strong>City-Wide Trends & Projections</strong><br/>
-  <div style='font-size:11px; color:#666; margin-bottom:8px;'>As of ", as_of_date_label, "</div>
+  <div class='trends-title'>City-Wide Trends & Projections</div>
+  <div class='trends-subtitle'>As of ", as_of_date_label, "</div>
   <div class='trends-box-grid'>
     <div class='trends-box trends-box-full'>
       <div class='trends-box-label'>vs. Last Year (YTD)</div>
-      <div class='trends-box-value trends-box-value-accent'>", citywide_pct_change_label, "</div>
+      <div class='trends-box-value ", pct_change_accent_class, "'>", citywide_pct_change_label, "</div>
     </div>
     <div class='trends-box trends-box-full'>
       <div class='trends-box-label'>Projected Year-End</div>
@@ -695,10 +700,10 @@ trends_control_html <- paste0("
     </div>
     <div class='trends-box trends-box-half'>
       <div class='trends-box-label'>This Month</div>
-      <div class='trends-box-value trends-box-value-accent'>", current_month_count, "</div>
+      <div class='trends-box-value ", month_accent_class, "'>", current_month_count, "</div>
     </div>
     <div class='trends-box trends-box-half'>
-      <div class='trends-box-label'>5-Yr Avg (to date)</div>
+      <div class='trends-box-label'>", month_to_date_label, " 5-Yr Avg</div>
       <div class='trends-box-value'>", five_year_avg_label, "</div>
     </div>
     <div class='trends-box trends-box-full'>
@@ -2158,6 +2163,8 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 .trends-box-label { font-size:11px; color:#666; margin-bottom:4px; }
 .trends-box-value { font-size:20px; font-weight:bold; color:#222222; }
 .trends-box-value-accent { color:#B2182B; }
+.trends-title { font-size:20px; font-weight:bold; text-align:center; }
+.trends-subtitle { font-size:11px; color:#666; text-align:center; margin-bottom:8px; }
 
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
