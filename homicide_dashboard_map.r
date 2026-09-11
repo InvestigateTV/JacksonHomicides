@@ -683,30 +683,28 @@ circumstance_control_html <- "
 trends_control_html <- paste0("
 <div class='sidebar-section'>
   <strong>City-Wide Trends & Projections</strong><br/>
-  <div style='font-size:11px; color:#666; margin-bottom:6px;'>As of ", as_of_date_label, "</div>
-  <div class='trends-row'>
-    <span>", CURRENT_YEAR, " Victims to Date:</span>
-    <span class='trends-value'>", citywide_ytd_current, "</span>
-  </div>
-  <div class='trends-row'>
-    <span>Change vs. Last Year (YTD):</span>
-    <span class='trends-value'>", citywide_pct_change_label, "</span>
-  </div>
-  <div class='trends-row'>
-    <span>Projected Year-End:</span>
-    <span class='trends-value'>", projected_year_end, "</span>
-  </div>
-  <div class='trends-row'>
-    <span>This Month:</span>
-    <span class='trends-value'>", current_month_count, "</span>
-  </div>
-  <div class='trends-row'>
-    <span>Last 30 Days:</span>
-    <span class='trends-value'>", last_30_days_count, "</span>
-  </div>
-  <div class='trends-row'>
-    <span>", month_to_date_label, " 5 Year Average:</span>
-    <span class='trends-value'>", five_year_avg_label, "</span>
+  <div style='font-size:11px; color:#666; margin-bottom:8px;'>As of ", as_of_date_label, "</div>
+  <div class='trends-box-grid'>
+    <div class='trends-box trends-box-full'>
+      <div class='trends-box-label'>vs. Last Year (YTD)</div>
+      <div class='trends-box-value trends-box-value-accent'>", citywide_pct_change_label, "</div>
+    </div>
+    <div class='trends-box trends-box-full'>
+      <div class='trends-box-label'>Projected Year-End</div>
+      <div class='trends-box-value'>", projected_year_end, "</div>
+    </div>
+    <div class='trends-box trends-box-half'>
+      <div class='trends-box-label'>This Month</div>
+      <div class='trends-box-value trends-box-value-accent'>", current_month_count, "</div>
+    </div>
+    <div class='trends-box trends-box-half'>
+      <div class='trends-box-label'>5-Yr Avg (to date)</div>
+      <div class='trends-box-value'>", five_year_avg_label, "</div>
+    </div>
+    <div class='trends-box trends-box-full'>
+      <div class='trends-box-label'>Last 30 Days</div>
+      <div class='trends-box-value'>", last_30_days_count, "</div>
+    </div>
   </div>
 </div>
 ")
@@ -2147,6 +2145,19 @@ body { margin:0; padding:0; font-family: Arial, sans-serif; background:#e9e9e9; 
 .trends-row:last-child { border-bottom:none; }
 .trends-row span:first-child { font-size:12px; color:#333; }
 .trends-value { font-weight:bold; font-size:14px; white-space:nowrap; }
+
+.trends-box-grid {
+  display:flex; flex-wrap:wrap; gap:8px;
+}
+.trends-box {
+  background:white; border:1px solid #ddd; border-radius:4px;
+  padding:8px 6px; text-align:center; box-sizing:border-box;
+}
+.trends-box-full { flex-basis:100%; }
+.trends-box-half { flex-basis:calc(50% - 4px); flex-grow:1; }
+.trends-box-label { font-size:11px; color:#666; margin-bottom:4px; }
+.trends-box-value { font-size:20px; font-weight:bold; color:#222222; }
+.trends-box-value-accent { color:#B2182B; }
 
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
