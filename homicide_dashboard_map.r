@@ -24,12 +24,6 @@ WARDS_PATH <- "data/JacksonWardsNew.json"
 CITY_BOUNDARY_PATH <- "data/City_Boundaries.json"
 CCID_BOUNDARY_PATH <- "data/Old_CCID_2024.json"
 
-homicide_data_path <- tempfile(fileext = ".csv")
-download.file(HOMICIDE_DATA_URL, destfile = homicide_data_path, mode = "wb", quiet = TRUE)
-JacksonHomicides <- read.csv(homicide_data_path)
-
-homicides_sf <- st_as_sf(JacksonHomicides, coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE)
-
 Wards <- read_sf(WARDS_PATH) |>
   rename(
     Pop_18Plus   = `_18P_Pop`,
@@ -40,7 +34,84 @@ Wards <- read_sf(WARDS_PATH) |>
 city_boundary_sf <- read_sf(CITY_BOUNDARY_PATH) |> st_as_sf()
 CCID_boundary_sf <- read_sf(CCID_BOUNDARY_PATH) |> st_as_sf()
 
-homicides_sf <- homicides_sf |> mutate(WardKey = toupper(WardKey))
+homicide_data_path <- tempfile(fileext = ".xlsx")
+download.file(HOMICIDE_DATA_URL, destfile = homicide_data_path, mode = "wb", quiet = TRUE)
+JacksonHomicides <- readxl::read_excel(homicide_data_path, sheet = "Homicides")
+
+# ---------------------------------------------------------------------------
+# Clean UUID: the source workbook derives UUID via an Excel formula
+# (=IF(TRIM(B2)="", "", CONCATENATE(...))) that leaves a literal empty
+# string "" (not a true blank cell) on fully-blank rows. Treat "" as NA,
+# then drop those rows entirely - a row with no UUID has no underlying
+# data and should not be treated as a homicide record.
+# ---------------------------------------------------------------------------
+
+JacksonHomicides$UUID[JacksonHomicides$UUID == ""] <- NA
+JacksonHomicides <- JacksonHomicides |> filter(!is.na(UUID))
+
+homicides_sf <- st_as_sf(JacksonHomicides, coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE)
+
+# readxl infers column types per-cell-content (unlike read.csv's more uniform
+# stringsAsFactors-style behavior), so a mostly-numeric column like Age can
+# come back as a double instead of character. Several downstream string
+# comparisons (Age %in% c("N/A", "Unknown", "")) assume character, so coerce
+# explicitly here rather than relying on incidental type inference.
+homicides_sf <- homicides_sf |>
+  mutate(
+    WardKey = toupper(WardKey),
+    Age = as.character(Age)
+  )
+
+# ---------------------------------------------------------------------------
+# Auto-geocode WardKey where blank: spatially join each point missing a
+# WardKey against the Wards polygons and fill in the matching District,
+# using the exact same value/format already used everywhere else in this
+# script (Wards$District, uppercased) so no downstream join logic needs
+# to change. Only fills blanks - never overwrites an existing WardKey.
+# ---------------------------------------------------------------------------
+
+wards_for_geocode <- st_transform(Wards, crs = 4326)
+
+homicides_sf$row_id_for_geocode <- seq_len(nrow(homicides_sf))
+
+needs_ward <- (is.na(homicides_sf$WardKey) | homicides_sf$WardKey == "") &
+  !is.na(homicides_sf$Latitude) & !is.na(homicides_sf$Longitude)
+
+if (any(needs_ward)) {
+  missing_ward_sf <- homicides_sf[needs_ward, ]
+
+  ward_match_index <- st_within(missing_ward_sf, wards_for_geocode)
+
+  geocoded_wardkey <- vapply(
+    ward_match_index,
+    function(idx) {
+      if (length(idx) == 0) NA_character_ else toupper(as.character(wards_for_geocode$District[idx[1]]))
+    },
+    character(1)
+  )
+
+  rows_to_update <- missing_ward_sf$row_id_for_geocode
+  homicides_sf$WardKey[match(rows_to_update, homicides_sf$row_id_for_geocode)] <- geocoded_wardkey
+}
+
+homicides_sf$row_id_for_geocode <- NULL
+
+# ---------------------------------------------------------------------------
+# Safe Date parser: readxl returns Excel date-formatted cells as actual
+# Date/POSIXct objects (not "%m/%d/%Y" strings like read.csv did), but if a
+# Date column is formatted as plain text in the sheet, readxl instead
+# returns a character string. Handle both without silently producing NA.
+# ---------------------------------------------------------------------------
+
+parse_homicide_date <- function(x) {
+  if (inherits(x, "Date")) {
+    return(x)
+  }
+  if (inherits(x, "POSIXct") || inherits(x, "POSIXt")) {
+    return(as.Date(x))
+  }
+  as.Date(x, format = "%m/%d/%Y")
+}
 
 # =============================================================================
 # INCIDENT-LEVEL TABLE (one row per homicide, not per victim)
@@ -71,7 +142,7 @@ homicides_incidents <- homicides_sf |>
     victim_count          = n(),
     .groups = "drop"
   ) |>
-  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))
+  mutate(Date = parse_homicide_date(Date))
 
 homicides_incidents_sf <- homicides_incidents |>
   filter(!is.na(Latitude), !is.na(Longitude)) |>
@@ -106,11 +177,19 @@ legend_order <- c("High Increase", "Increase", "Stable", "Decrease", "High Decre
 # CITY-WIDE TRENDS (static, filter-independent panel)
 # =============================================================================
 
-citywide_ytd_current  <- homicides_incidents |>
+# NOTE: City-Wide Trends are intentionally VICTIM-level (counted from
+# homicides_sf, one row per victim), per an explicit editorial decision -
+# this differs from the map dots and ward YoY coloring, which remain
+# incident-level (one row per homicide event) as originally designed.
+homicides_sf_dated <- homicides_sf |>
+  st_drop_geometry() |>
+  mutate(Date = parse_homicide_date(Date))
+
+citywide_ytd_current  <- homicides_sf_dated |>
   filter(Year == CURRENT_YEAR, yday(Date) <= DOY_CUTOFF) |>
   nrow()
 
-citywide_ytd_previous <- homicides_incidents |>
+citywide_ytd_previous <- homicides_sf_dated |>
   filter(Year == PREVIOUS_YEAR, yday(Date) <= DOY_CUTOFF) |>
   nrow()
 
@@ -128,11 +207,11 @@ citywide_pct_change_label <- case_when(
 
 current_month_label <- format(TODAY, "%B %Y")
 
-current_month_count <- homicides_incidents |>
+current_month_count <- homicides_sf_dated |>
   filter(Year == CURRENT_YEAR, month(Date) == month(TODAY)) |>
   nrow()
 
-last_30_days_count <- homicides_incidents |>
+last_30_days_count <- homicides_sf_dated |>
   filter(Date >= (TODAY - 29), Date <= TODAY) |>
   nrow()
 
@@ -141,7 +220,7 @@ current_month_num <- month(TODAY)
 current_day_num   <- day(TODAY)
 
 five_year_month_to_date_counts <- sapply(five_year_avg_years, function(Y) {
-  homicides_incidents |>
+  homicides_sf_dated |>
     filter(
       Year == Y,
       month(Date) == current_month_num,
@@ -161,10 +240,12 @@ CITYWIDE_POPULATION <- 141196
 
 # --- Cumulative Homicides by Year: one running-total series per year, ---
 # --- indexed by day-of-year (1-366) so years overlay on a shared x-axis. ---
+# NOTE: victim-level (per editorial decision), unlike the map dots/ward
+# YoY coloring, which remain incident-level.
 cumulative_by_year <- lapply(all_years, function(Y) {
   year_days <- if (Y == CURRENT_YEAR) DOY_CUTOFF else 366
 
-  daily_counts <- homicides_incidents |>
+  daily_counts <- homicides_sf_dated |>
     filter(Year == Y) |>
     mutate(doy = yday(Date)) |>
     count(doy, name = "n")
@@ -187,7 +268,9 @@ names(cumulative_by_year) <- as.character(all_years)
 
 today_doy_label <- DOY_CUTOFF
 
-# --- Homicides by Year: incident counts stacked by agency bucket + rate/100k ---
+# --- Homicides by Year: victim counts stacked by agency bucket + rate/100k ---
+# NOTE: victim-level (per editorial decision); rate_per_100k below is
+# therefore a victim rate, not an incident rate.
 agency_bucket_expr <- function(agency) {
   case_when(
     agency == "JPD"            ~ "JPD",
@@ -196,7 +279,7 @@ agency_bucket_expr <- function(agency) {
   )
 }
 
-homicides_by_year_agency <- homicides_incidents |>
+homicides_by_year_agency <- homicides_sf_dated |>
   filter(Year %in% all_years) |>
   mutate(agency_bucket = agency_bucket_expr(Investigating.Agency)) |>
   count(Year, agency_bucket, name = "n")
@@ -207,14 +290,14 @@ homicides_by_year_summary <- lapply(all_years, function(Y) {
     v <- rows$n[rows$agency_bucket == bucket]
     if (length(v) == 0) 0L else as.integer(v)
   }
-  total_incidents <- get_n("JPD") + get_n("Capitol Police") + get_n("Other Agencies")
+  total_victims <- get_n("JPD") + get_n("Capitol Police") + get_n("Other Agencies")
   list(
     year           = as.character(Y),
     jpd            = get_n("JPD"),
     capitol_police = get_n("Capitol Police"),
     other_agencies = get_n("Other Agencies"),
-    total_incidents = total_incidents,
-    rate_per_100k  = round((total_incidents / CITYWIDE_POPULATION) * 100000, 1)
+    total_incidents = total_victims,
+    rate_per_100k  = round((total_victims / CITYWIDE_POPULATION) * 100000, 1)
   )
 })
 
@@ -489,7 +572,7 @@ victim_summary_df <- homicides_sf |>
   st_drop_geometry() |>
   filter(Year %in% all_years) |>
   mutate(
-    Date = as.Date(Date, format = "%m/%d/%Y"),
+    Date = parse_homicide_date(Date),
     AgeDisplay = ifelse(is.na(Age) | Age %in% c("N/A", "Unknown", ""), "Unknown", Age),
     AgeGroup = age_group_bucket(Age),
     RaceDisplay = ifelse(is.na(Race) | Race %in% c("", "N/A"), "Unknown", Race),
@@ -1165,9 +1248,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
         var html =
           locationNote +
-          '<div class=\"summary-count\">' + records.length + '</div>' +
-          'Homicide Incidents Shown' +
-          '<div class=\"summary-subcount\">Total Victims: ' + totalVictims + '</div>' +
+          '<div class=\"summary-count\">' + totalVictims + '</div>' +
+          'Victims Shown' +
+          '<div class=\"summary-subcount\">Homicide Incidents: ' + records.length + '</div>' +
           '<div class=\"summary-block-left\">' +
           '<hr style=\"margin:4px 0;\">' +
           '<strong>By Year:</strong>' + (yearLabels.length ? yearTableHtml : '<br/>None selected') +
@@ -1340,7 +1423,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
                     label: function(item) {
                       var year = item.dataset.label;
                       var count = item.formattedValue;
-                      return year + ': ' + count + ' cumulative homicides';
+                      return year + ': ' + count + ' cumulative victims';
                     }
                   }
                 }
@@ -1365,7 +1448,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
                     }
                   }
                 },
-                y: { title: { display: true, text: 'Cumulative Homicides' }, beginAtZero: true }
+                y: { title: { display: true, text: 'Cumulative Victims' }, beginAtZero: true }
               }
             }
           });
@@ -1398,7 +1481,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
                   backgroundColor: '#92C5DE', stack: 'agency', yAxisID: 'y'
                 },
                 {
-                  type: 'line', label: 'Rate per 100,000 residents',
+                  type: 'line', label: 'Victims per 100,000 residents',
                   data: data.homicides_by_year.map(function(r) { return r.rate_per_100k; }),
                   borderColor: '#222222', backgroundColor: '#222222',
                   borderWidth: 2, pointRadius: 3, yAxisID: 'y1', tension: 0.2
@@ -1410,7 +1493,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
               maintainAspectRatio: false,
               plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
               scales: {
-                y:  { stacked: true, beginAtZero: true, position: 'left', title: { display: true, text: 'Homicide Incidents' } },
+                y:  { stacked: true, beginAtZero: true, position: 'left', title: { display: true, text: 'Homicide Victims' } },
                 y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'per 100k' } }
               }
             }
@@ -1540,10 +1623,11 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         }
 
         var victimRecords = window.getFilteredVictimRecords();
-        var incidentRecords = window.dedupeToIncidents(victimRecords);
 
-        /* Victim-level attributes: Age and Race describe individual victims,
-           so multi-victim incidents should count each victim once here. */
+        /* All Detailed Breakdowns charts are victim-level per editorial
+           decision (unlike the map dots/ward YoY coloring, which remain
+           incident-level as originally designed). A multi-victim incident
+           now counts once per victim in every chart on this tab. */
         var ageOrder = ['0-17', '18-29', '30-49', '50+', 'Unknown'];
         var ageCounts = window.countBy(victimRecords, function(r) { return r.AgeGroup; });
         window.upsertBarChart(
@@ -1560,11 +1644,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           window.paletteFor(raceLabels.length)
         );
 
-        /* Incident-level attributes: Circumstance/Agency/Ward describe the
-           homicide event itself, so a multi-victim incident must count once,
-           matching the incident-count convention used everywhere else on
-           this dashboard (map dots, ward YoY coloring, Map Summary box). */
-        var circCounts = window.countBy(incidentRecords, function(r) { return r.Circumstance; });
+        var circCounts = window.countBy(victimRecords, function(r) { return r.Circumstance; });
         var circLabels = Object.keys(circCounts).sort(function(a, b) { return circCounts[b] - circCounts[a]; });
         window.upsertBarChart(
           'chartCircumstance', 'chart-circumstance',
@@ -1572,7 +1652,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           '#B2182B'
         );
 
-        var agencyCounts = window.countBy(incidentRecords, function(r) { return r.Agency; });
+        var agencyCounts = window.countBy(victimRecords, function(r) { return r.Agency; });
         var agencyLabels = Object.keys(agencyCounts).sort(function(a, b) { return agencyCounts[b] - agencyCounts[a]; });
         window.upsertPieChart(
           'chartAgency', 'chart-agency',
@@ -1580,7 +1660,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           window.paletteFor(agencyLabels.length)
         );
 
-        var wardCounts = window.countBy(incidentRecords, function(r) { return r.WardKey || 'Unknown'; });
+        var wardCounts = window.countBy(victimRecords, function(r) { return r.WardKey || 'Unknown'; });
         var wardLabels = Object.keys(wardCounts).sort();
         window.upsertBarChart(
           'chartWard', 'chart-ward',
