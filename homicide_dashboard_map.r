@@ -683,7 +683,7 @@ circumstance_control_html <- "
 clearance_control_html <- "
 <div class='sidebar-section'>
   <div class='clearance-title'>Clearance Rates</div>
-  <div class='clearance-subtitle'>Selected Data</div>
+  <div class='clearance-subtitle'>(For Selected Data)</div>
   <div id='clearance-rate-table'></div>
   <div class='clearance-note-row'>
     <a href='#' id='clearance-note-link'>* Data Accuracy Note</a>
@@ -731,8 +731,7 @@ header_html <- paste0("
 <div class='dashboard-header'>
   <div class='header-main'>
     <div class='header-title'>
-      <div class='header-title-main'>Jackson's Homicides</div>
-      <div class='header-title-sub'>A Public Safety Tracker</div>
+      <img src='visuals/HomicideTrackerTitle.png' class='header-title-image' alt=\"Jackson's Homicides: A Public Safety Tracker\">
     </div>
   </div>
   <div class='header-right'>
@@ -2130,6 +2129,7 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 .header-title { flex-shrink:0; }
 .header-right { display:flex; align-items:center; flex-shrink:0; order:3; margin-left:auto; }
 .header-logo { height:40px; width:auto; }
+.header-title-image { height:44px; width:auto; display:block; }
 .header-title-main { font-weight:bold; font-size:22px; line-height:1.1; white-space:nowrap; }
 .header-title-sub { font-size:12px; color:#666; white-space:nowrap; }
 .header-stats {
@@ -2177,6 +2177,7 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .header-title { order:1; }
   .header-title-main { font-size:16px; }
   .header-title-sub { font-size:10px; }
+  .header-title-image { height:34px; }
   .header-right { order:2; flex-basis:25%; justify-content:flex-end; margin-left:0; }
   .header-logo { height:28px; }
   .header-stats {
