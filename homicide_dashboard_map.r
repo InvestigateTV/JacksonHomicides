@@ -846,24 +846,23 @@ velocity_rows <- paste0(
 legend_html <- paste0("
 <style>
 .custom-legend-box {
-  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:15px; line-height:1.6; transform: scale(0.8); transform-origin: top left;
+  background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:12px; line-height:1.5;
 }
 .leaflet-control.custom-legend-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 .map-summary-box {
-  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:16px; line-height:1.3; width:170px; max-width:170px;
+  background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:13px; line-height:1.25; width:140px; max-width:140px;
   word-wrap:break-word; overflow-wrap:break-word; text-align:center;
-  transform: scale(0.8); transform-origin: top right;
 }
 .map-summary-box .summary-block-left { text-align:left; }
-.summary-title { font-size:17px; font-weight:bold; text-align:center; }
-.summary-hr { margin:6px 0; border:none; border-top:1px solid #bbb; }
-.summary-count { font-size:26px; font-weight:bold; }
-.summary-subcount { font-size:14px; color:#333; margin-top:2px; }
-.summary-location-note { color:#2c7be5; font-size:15px; margin-bottom:4px; }
-.summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:15px; }
-.summary-marker-note { font-style:italic; font-size:12px; color:#666; text-align:center; margin-top:6px; }
+.summary-title { font-size:14px; font-weight:bold; text-align:center; }
+.summary-hr { margin:5px 0; border:none; border-top:1px solid #bbb; }
+.summary-count { font-size:21px; font-weight:bold; }
+.summary-subcount { font-size:11px; color:#333; margin-top:2px; }
+.summary-location-note { color:#2c7be5; font-size:12px; margin-bottom:4px; }
+.summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:5px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -2108,8 +2107,14 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .sidebar-section { padding:12px 14px; margin-bottom:14px; font-size:14px; }
   .sidebar-scroll, .sidebar-scroll-small { max-height:110px; }
   .dashboard-map { width:100%; height:60vh; min-height:350px; order:1; }
-  .custom-legend-box { transform:scale(0.65); transform-origin:top left; }
-  .map-summary-box { transform:scale(0.65); transform-origin:top right; }
+  .custom-legend-box { font-size:10px; padding:5px 7px; }
+  .map-summary-box { font-size:11px; padding:5px 7px; width:110px; max-width:110px; }
+  .summary-title { font-size:12px; }
+  .summary-count { font-size:17px; }
+  .summary-subcount { font-size:9px; }
+  .summary-location-note { font-size:10px; }
+  .summary-detail-row { font-size:10px; }
+  .summary-marker-note { font-size:8px; }
   .dashboard-map-yoy-status {
     top:auto; bottom:8px; left:50%; transform:translateX(-50%);
   }
