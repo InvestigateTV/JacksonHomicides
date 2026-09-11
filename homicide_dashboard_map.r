@@ -229,6 +229,13 @@ citywide_ytd_previous <- homicides_sf_dated |>
   filter(Year == PREVIOUS_YEAR, yday(Date) <= DOY_CUTOFF) |>
   nrow()
 
+# --- Projected Year-End: naive linear projection based on the current ---
+# --- year's victim-per-day rate so far, applied to the remaining days. ---
+days_in_current_year   <- if (leap_year(CURRENT_YEAR)) 366 else 365
+citywide_days_remaining <- days_in_current_year - DOY_CUTOFF
+citywide_daily_rate     <- citywide_ytd_current / DOY_CUTOFF
+projected_year_end      <- round(citywide_ytd_current + citywide_daily_rate * citywide_days_remaining)
+
 citywide_pct_change <- case_when(
   citywide_ytd_previous == 0 & citywide_ytd_current == 0 ~ NA_real_,
   citywide_ytd_previous == 0 & citywide_ytd_current  > 0 ~ Inf,
@@ -242,6 +249,7 @@ citywide_pct_change_label <- case_when(
 )
 
 current_month_label <- format(TODAY, "%B %Y")
+as_of_date_label <- format(TODAY, "%B %d, %Y")
 
 current_month_count <- homicides_sf_dated |>
   filter(Year == CURRENT_YEAR, month(Date) == month(TODAY)) |>
@@ -674,17 +682,22 @@ circumstance_control_html <- "
 
 trends_control_html <- paste0("
 <div class='sidebar-section'>
-  <strong>City-Wide Trends</strong><br/>
+  <strong>City-Wide Trends & Projections</strong><br/>
+  <div style='font-size:11px; color:#666; margin-bottom:6px;'>As of ", as_of_date_label, "</div>
   <div class='trends-row'>
-    <span>", CURRENT_YEAR, " Homicide Incidents to Date:</span>
+    <span>", CURRENT_YEAR, " Victims to Date:</span>
     <span class='trends-value'>", citywide_ytd_current, "</span>
   </div>
   <div class='trends-row'>
-    <span>Change vs. Last Year:</span>
+    <span>Change vs. Last Year (YTD):</span>
     <span class='trends-value'>", citywide_pct_change_label, "</span>
   </div>
   <div class='trends-row'>
-    <span>", current_month_label, ":</span>
+    <span>Projected Year-End:</span>
+    <span class='trends-value'>", projected_year_end, "</span>
+  </div>
+  <div class='trends-row'>
+    <span>This Month:</span>
     <span class='trends-value'>", current_month_count, "</span>
   </div>
   <div class='trends-row'>
