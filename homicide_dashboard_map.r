@@ -847,23 +847,23 @@ legend_html <- paste0("
 <style>
 .custom-legend-box {
   background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:13px; line-height:1.6; transform: scale(0.8); transform-origin: top left;
+  font-size:15px; line-height:1.6; transform: scale(0.8); transform-origin: top left;
 }
 .leaflet-control.custom-legend-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 .map-summary-box {
   background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:14px; line-height:1.3; width:170px; max-width:170px;
+  font-size:16px; line-height:1.3; width:170px; max-width:170px;
   word-wrap:break-word; overflow-wrap:break-word; text-align:center;
   transform: scale(0.8); transform-origin: top right;
 }
 .map-summary-box .summary-block-left { text-align:left; }
-.summary-title { font-size:15px; font-weight:bold; text-align:center; }
+.summary-title { font-size:17px; font-weight:bold; text-align:center; }
 .summary-hr { margin:6px 0; border:none; border-top:1px solid #bbb; }
-.summary-count { font-size:24px; font-weight:bold; }
-.summary-subcount { font-size:12px; color:#333; margin-top:2px; }
-.summary-location-note { color:#2c7be5; font-size:13px; margin-bottom:4px; }
-.summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:13px; }
-.summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:6px; }
+.summary-count { font-size:26px; font-weight:bold; }
+.summary-subcount { font-size:14px; color:#333; margin-top:2px; }
+.summary-location-note { color:#2c7be5; font-size:15px; margin-bottom:4px; }
+.summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:15px; }
+.summary-marker-note { font-style:italic; font-size:12px; color:#666; text-align:center; margin-top:6px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
