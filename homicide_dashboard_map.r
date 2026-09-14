@@ -965,6 +965,11 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       map.attributionControl.setPrefix(false);
 
+      map.fitBounds([
+        [data.bbox.south, data.bbox.west],
+        [data.bbox.north, data.bbox.east]
+      ]);
+
       window.wardDataByYear = data.wards;
       window.incidentDataByYear = data.incidents;
       window.currentWardLayer = null;
