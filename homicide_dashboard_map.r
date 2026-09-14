@@ -21,7 +21,6 @@ if (identical(HOMICIDE_DATA_URL, "")) {
 }
 
 WARDS_PATH <- "data/JacksonWardsNew.json"
-CITY_BOUNDARY_PATH <- "data/City_Boundaries.json"
 CCID_BOUNDARY_PATH <- "data/Old_CCID_2024.json"
 
 Wards <- read_sf(WARDS_PATH) |>
@@ -31,7 +30,6 @@ Wards <- read_sf(WARDS_PATH) |>
     Black_18Plus = `_18P_Blk`
   )
 
-city_boundary_sf <- read_sf(CITY_BOUNDARY_PATH) |> st_as_sf()
 CCID_boundary_sf <- read_sf(CCID_BOUNDARY_PATH) |> st_as_sf()
 
 # ---------------------------------------------------------------------------
@@ -186,7 +184,6 @@ homicides_incidents_sf <- homicides_incidents |>
   st_transform(crs = 4326)
 
 CCID_boundary_sf <- st_transform(CCID_boundary_sf, crs = 4326)
-city_boundary_sf <- st_transform(city_boundary_sf, crs = 4326)
 
 # =============================================================================
 # CONSTANTS
@@ -895,8 +892,6 @@ legend_html <- paste0("
   Homicide (Unsolved)<br/>
   <span style='display:inline-block; width:14px; height:14px; border-radius:50%; background:#1a2b48; border:1px solid #0d1a2e; vertical-align:middle; margin-right:6px;'></span>
   Homicide (Solved)<br/>
-  <span style='display:inline-block; width:20px; height:0; border-top:3px solid #000000; vertical-align:middle; margin-right:6px;'></span>
-  City Limits<br/>
   <span style='display:inline-block; width:20px; height:0; border-top:3px solid #A020F0; vertical-align:middle; margin-right:6px;'></span>
   CCID Boundary<br/>
   <hr class='summary-hr'>
@@ -935,7 +930,7 @@ render_payload <- list(
 
 # =============================================================================
 # CONSOLIDATED MAP
-#   Pane order (low -> high): wardsPane < cityPane < incidentsPane
+#   Pane order (low -> high): wardsPane < ccidPane < incidentsPane
 #   Ward layer and incident layers are both drawn dynamically via
 #   onRender()/L.geoJSON(), swapped per the selected year(s)/filters.
 #   Boundaries are non-interactive so they can never intercept a click
@@ -950,13 +945,8 @@ render_payload <- list(
 map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl = FALSE)) |>
   addProviderTiles(providers$OpenStreetMap.Mapnik, options = providerTileOptions(attribution = "© OpenStreetMap")) |>
   addMapPane("wardsPane",     zIndex = 650) |>
-  addMapPane("cityPane",      zIndex = 670) |>
   addMapPane("ccidPane",      zIndex = 680) |>
   addMapPane("incidentsPane", zIndex = 690) |>
-  addPolygons(
-    data = city_boundary_sf, color = "#000000", fillOpacity = 0, weight = 2,
-    options = pathOptions(pane = "cityPane", interactive = FALSE)
-  ) |>
   addPolygons(
     data = CCID_boundary_sf, color = "#A020F0", fillOpacity = 0, weight = 3, opacity = 1,
     options = pathOptions(pane = "ccidPane", interactive = FALSE)
@@ -1331,7 +1321,6 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
       window.enforcePaneOrder = function() {
         if (map.getPane('wardsPane'))     { map.getPane('wardsPane').style.zIndex = 650; }
-        if (map.getPane('cityPane'))      { map.getPane('cityPane').style.zIndex = 670; }
         if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
       };
