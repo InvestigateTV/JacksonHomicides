@@ -558,6 +558,14 @@ year_control_html <- paste0("
 </div>
 ")
 
+view_mode_control_html <- "
+<div class='sidebar-section'>
+  <strong>Map View</strong><br/>
+  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='points' checked> Points</label>
+  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='heatmap'> Heatmap</label>
+</div>
+"
+
 # =============================================================================
 # Incident summary records (all incidents, including non-geocoded)
 # =============================================================================
@@ -942,10 +950,11 @@ render_payload <- list(
 #   broke the previous bottom-anchored mobile attempt.
 # =============================================================================
 
-map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl = FALSE)) |>
+map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl = FALSE, scrollWheelZoom = FALSE)) |>
   addProviderTiles(providers$OpenStreetMap.Mapnik, options = providerTileOptions(attribution = "© OpenStreetMap")) |>
   addMapPane("wardsPane",     zIndex = 650) |>
   addMapPane("ccidPane",      zIndex = 680) |>
+  addMapPane("heatmapPane",   zIndex = 685) |>
   addMapPane("incidentsPane", zIndex = 690) |>
   addPolygons(
     data = CCID_boundary_sf, color = "#A020F0", fillOpacity = 0, weight = 3, opacity = 1,
@@ -1327,8 +1336,117 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.enforcePaneOrder = function() {
         if (map.getPane('wardsPane'))     { map.getPane('wardsPane').style.zIndex = 650; }
         if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
+        if (map.getPane('heatmapPane'))   { map.getPane('heatmapPane').style.zIndex = 685; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
       };
+
+      window.viewMode = 'points';
+
+      window.heatPluginReady = false;
+      window.heatPluginCallbacks = [];
+
+      window.waitForHeatPlugin = function(callback) {
+        if (window.heatPluginReady && typeof L.heatLayer !== 'undefined') {
+          callback();
+          return;
+        }
+        window.heatPluginCallbacks.push(callback);
+      };
+
+      window.loadHeatPlugin = function() {
+        var existing = document.getElementById('heat-plugin-cdn-script');
+        if (existing) { return; }
+
+        var script = document.createElement('script');
+        script.id = 'heat-plugin-cdn-script';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js';
+        script.onload = function() {
+          window.heatPluginReady = true;
+          window.heatPluginCallbacks.forEach(function(cb) {
+            try { cb(); } catch (e) { console.error('Heatmap plugin callback failed:', e); }
+          });
+          window.heatPluginCallbacks = [];
+        };
+        script.onerror = function() {
+          console.error('Heatmap plugin failed to load from CDN; heatmap view will not be available.');
+        };
+        document.head.appendChild(script);
+      };
+
+      window.loadHeatPlugin();
+
+      window.currentHeatLayer = null;
+
+      window.getHeatPoints = function() {
+        var checkedAgencies = window.getCheckedValues('.agency-toggle:checked');
+        var checkedCircumstances = window.getCheckedValues('.circumstance-toggle:checked');
+        var checkedYears = window.getCheckedYears().map(String);
+        var points = [];
+
+        checkedYears.forEach(function(year) {
+          var layer = window.getOrBuildIncidentLayer(year);
+          if (!layer) { return; }
+          layer.eachLayer(function(sub) {
+            var p = sub.feature.properties || {};
+            var latlng = sub.getLatLng();
+            var matches =
+              checkedAgencies.indexOf(p.agency) !== -1 &&
+              checkedCircumstances.indexOf(p.circumstance) !== -1 &&
+              window.isWithinSearchBuffer(latlng.lat, latlng.lng);
+            if (matches) {
+              points.push([latlng.lat, latlng.lng, 0.5]);
+            }
+          });
+        });
+
+        return points;
+      };
+
+      window.rebuildHeatLayer = function() {
+        if (window.currentHeatLayer) {
+          map.removeLayer(window.currentHeatLayer);
+          window.currentHeatLayer = null;
+        }
+
+        if (typeof L.heatLayer === 'undefined') { return; }
+
+        var points = window.getHeatPoints();
+        window.currentHeatLayer = L.heatLayer(points, {
+          pane: 'heatmapPane',
+          radius: 20,
+          blur: 18,
+          maxZoom: 16
+        });
+        window.currentHeatLayer.addTo(map);
+      };
+
+      window.refreshViewModeLayers = function() {
+        Object.keys(window.incidentLayersByYear).forEach(function(year) {
+          var layer = window.incidentLayersByYear[year];
+          if (window.viewMode === 'heatmap') {
+            if (map.hasLayer(layer)) { map.removeLayer(layer); }
+          }
+        });
+
+        if (window.viewMode === 'heatmap') {
+          window.waitForHeatPlugin(function() {
+            window.rebuildHeatLayer();
+          });
+        } else {
+          if (window.currentHeatLayer) {
+            map.removeLayer(window.currentHeatLayer);
+            window.currentHeatLayer = null;
+          }
+          window.refreshIncidentVisibility();
+        }
+      };
+
+      document.querySelectorAll('.view-mode-toggle').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+          window.viewMode = radio.value;
+          window.onAnyFilterChange();
+        });
+      });
 
       /* =====================================================================
          TABS: Key Trends / Detailed Breakdowns / Victims
@@ -1832,7 +1950,10 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.searchState = { active: false, lat: null, lng: null, radiusMiles: null };
       window.searchBufferLayer = null;
       window.searchMarker = null;
-      window.initialMapView = { center: map.getCenter(), zoom: map.getZoom() };
+      window.initialMapView = null;
+      map.once('moveend', function() {
+        window.initialMapView = { center: map.getCenter(), zoom: map.getZoom() };
+      });
 
       window.isWithinBbox = function(lat, lng) {
         var b = data.bbox;
@@ -1952,7 +2073,14 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         window.showSearchError(null);
         window.showMatchedAddress(null);
         window.clearSearchBuffer();
-        map.setView(window.initialMapView.center, window.initialMapView.zoom);
+        if (window.initialMapView) {
+          map.setView(window.initialMapView.center, window.initialMapView.zoom);
+        } else {
+          map.fitBounds([
+            [data.bbox.south, data.bbox.west],
+            [data.bbox.north, data.bbox.east]
+          ]);
+        }
         window.onAnyFilterChange();
       };
 
@@ -1982,7 +2110,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       };
 
       window.onAnyFilterChange = function() {
-        window.safeCall('refreshIncidentVisibility', window.refreshIncidentVisibility);
+        window.safeCall('refreshViewModeLayers', window.refreshViewModeLayers);
         window.safeCall('refreshWardComparison', window.refreshWardComparison);
         window.safeCall('updateMapSummary', window.updateMapSummary);
         window.safeCall('enforcePaneOrder', window.enforcePaneOrder);
@@ -2137,17 +2265,16 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 .header-stat-days { background:#1a2b48; color:white; }
 
 .dashboard-layout {
-  display:flex; flex-direction:row;
-  height:calc(100vh - var(--header-height)); width:100%;
-  flex-shrink:0; min-height:0;
+  display:flex; flex-direction:row; align-items:stretch;
+  width:100%; flex-shrink:0;
 }
 .dashboard-sidebar {
-  width:22%; min-width:230px; max-width:320px; height:100%; overflow-y:auto;
+  width:22%; min-width:230px; max-width:320px; max-height:640px; overflow-y:auto;
   background:#f7f7f7; border-right:1px solid #ddd; padding:10px; box-sizing:border-box;
   flex-shrink:0;
 }
 .dashboard-map {
-  flex-grow:1; height:100%; min-width:0; position:relative;
+  flex-grow:1; height:640px; min-width:0; position:relative;
 }
 .dashboard-map .html-widget { height:100% !important; width:100% !important; }
 
@@ -2368,6 +2495,7 @@ sidebar_html <- htmltools::tags$div(
   class = "dashboard-sidebar",
   htmltools::HTML(search_control_html),
   htmltools::HTML(year_control_html),
+  htmltools::HTML(view_mode_control_html),
   htmltools::HTML(agency_control_html),
   htmltools::HTML(circumstance_control_html),
   htmltools::tags$hr(class = "sidebar-section-divider"),
