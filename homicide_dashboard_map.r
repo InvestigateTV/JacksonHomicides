@@ -886,21 +886,22 @@ legend_html <- paste0("
 .summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:5px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 .view-mode-box {
-  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:12px; line-height:1.6; display:flex; align-items:center; gap:8px;
+  background:white; padding:4px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:11px; line-height:1.2; display:inline-flex; align-items:center; gap:6px;
+  width:auto; max-width:140px;
 }
-.view-mode-label { font-weight:600; color:#333; user-select:none; }
+.view-mode-label { font-weight:600; color:#333; user-select:none; white-space:nowrap; }
 .view-mode-label.active { color:#111; }
 .view-mode-switch {
-  position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0;
+  position:relative; display:inline-block; width:32px; height:17px; flex-shrink:0;
 }
 .view-mode-switch input { opacity:0; width:0; height:0; }
 .view-mode-switch-track {
   position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
-  background-color:#ccc; transition:.2s; border-radius:24px;
+  background-color:#ccc; transition:.2s; border-radius:17px;
 }
 .view-mode-switch-track::before {
-  position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px;
+  position:absolute; content:''; height:13px; width:13px; left:2px; bottom:2px;
   background-color:white; transition:.2s; border-radius:50%;
   box-shadow:0 1px 3px rgba(0,0,0,0.4);
 }
@@ -908,7 +909,7 @@ legend_html <- paste0("
   background-color:#2ecc71;
 }
 .view-mode-switch input:checked + .view-mode-switch-track::before {
-  transform:translateX(20px);
+  transform:translateX(15px);
 }
 .leaflet-control.view-mode-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
@@ -1379,6 +1380,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
         if (map.getPane('heatmapPane'))   { map.getPane('heatmapPane').style.zIndex = 685; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
+        if (map.getPane('overlayPane')) {
+          map.getPane('overlayPane').style.zIndex = (window.viewMode === 'heatmap') ? 686 : 400;
+        }
       };
 
       window.viewMode = 'points';
@@ -1458,13 +1462,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           maxZoom: 16
         });
 
-        window.currentHeatLayer.on('add', function() {
-          if (window.currentHeatLayer._canvas) {
-            window.currentHeatLayer._canvas.style.zIndex = 685;
-          }
-        });
-
         window.currentHeatLayer.addTo(map);
+
+        window.enforcePaneOrder();
       };
 
       window.refreshViewModeLayers = function() {
