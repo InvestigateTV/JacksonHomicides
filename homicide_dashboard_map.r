@@ -74,6 +74,16 @@ if (!is_zip_signature) {
 JacksonHomicides <- readxl::read_excel(homicide_data_path, sheet = "Homicides")
 
 # ---------------------------------------------------------------------------
+# Comparison_Metros: a hand-maintained sheet in the same workbook listing
+# other cities' most recently reported homicide counts/rates. Used to build
+# the scrolling "Top 5 Homicide Rates" ticker in the header, with Jackson's
+# own rate computed fresh below from this script's own live data (not a
+# static number) and merged into the same ranked list.
+# ---------------------------------------------------------------------------
+
+ComparisonMetros <- readxl::read_excel(homicide_data_path, sheet = "Comparison_Metros")
+
+# ---------------------------------------------------------------------------
 # Clean UUID: the source workbook derives UUID via an Excel formula
 # (=IF(TRIM(B2)="", "", CONCATENATE(...))) that leaves a literal empty
 # string "" (not a true blank cell) on fully-blank rows. Treat "" as NA,
@@ -278,6 +288,61 @@ month_to_date_label <- format(TODAY, "%b")
 # =============================================================================
 
 CITYWIDE_POPULATION <- 141196
+
+# =============================================================================
+# METRO COMPARISON TICKER ("Top 5 Homicide Rates" scrolling header banner)
+#   Jackson's own rate is computed fresh from this script's own live YTD
+#   data (citywide_ytd_current / CITYWIDE_POPULATION), NOT a static number,
+#   then merged into the hand-maintained Comparison_Metros list, sorted
+#   descending by rate. If Jackson isn't in the top 5, one extra ticker
+#   item is appended ("... | <rank>. Jackson, MS (<rate>)") so its real
+#   rank is still shown without implying it's literally in 6th place.
+# =============================================================================
+
+jackson_metro_rate <- round((citywide_ytd_current / CITYWIDE_POPULATION) * 100000, 2)
+
+metro_comparison <- ComparisonMetros |>
+  transmute(City = City, Rate = Rate) |>
+  bind_rows(tibble(City = "Jackson, MS", Rate = jackson_metro_rate)) |>
+  filter(!is.na(Rate)) |>
+  arrange(desc(Rate)) |>
+  mutate(Rank = row_number())
+
+jackson_metro_rank <- metro_comparison$Rank[metro_comparison$City == "Jackson, MS"]
+metro_top5 <- metro_comparison |> filter(Rank <= 5)
+
+metro_ticker_items <- c(
+  "Top 5 Homicide Rates (per 100k)",
+  paste0(metro_top5$Rank, ". ", metro_top5$City, " <span>(", sprintf("%.1f", metro_top5$Rate), ")</span>")
+)
+
+if (!("Jackson, MS" %in% metro_top5$City) && length(jackson_metro_rank) == 1) {
+  metro_ticker_items <- c(
+    metro_ticker_items,
+    paste0("... | ", jackson_metro_rank, ". Jackson, MS <span>(", sprintf("%.1f", jackson_metro_rate), ")</span>")
+  )
+}
+
+metro_ticker_text <- paste(metro_ticker_items, collapse = " &nbsp; | &nbsp; ")
+
+# Rank-tier banner color, matching this dashboard's existing YoY palette
+# (red = attention/worst, soft orange = elevated, blue = comparatively
+# better) rather than the original tool's distinct red/orange/green scheme.
+metro_rank_color <- case_when(
+  length(jackson_metro_rank) != 1 ~ unname(color_lookup["No Data"]),
+  jackson_metro_rank == 1         ~ unname(color_lookup["High Increase"]),
+  jackson_metro_rank <= 5         ~ unname(color_lookup["Increase"]),
+  TRUE                            ~ unname(color_lookup["High Decrease"])
+)
+
+ranking_banner_html <- paste0("
+<div class='ranking-banner' style='background-color:", metro_rank_color, ";'>
+  <div class='ticker-wrap' id='tickerWrap'>
+    <div class='ticker-item'>", metro_ticker_text, "</div>
+    <div class='ticker-item'>", metro_ticker_text, "</div>
+  </div>
+</div>
+")
 
 # --- Cumulative Homicides by Year: one running-total series per year, ---
 # --- indexed by day-of-year (1-366) so years overlay on a shared x-axis. ---
@@ -726,17 +791,22 @@ days_since_last_homicide <- as.integer(TODAY - max(homicides_incidents$Date, na.
 
 header_html <- paste0("
 <div class='dashboard-header'>
-  <div class='header-main'>
-    <div class='header-title'>
-      <img src='visuals/HomicideTrackerTitle.png' class='header-title-image' alt=\"Jackson's Homicides: A Public Safety Tracker\">
+  <div class='header-top-row'>
+    <div class='header-main'>
+      <div class='header-title'>
+        <img src='visuals/HomicideTrackerTitle.png' class='header-title-image' alt=\"Jackson's Homicides: A Public Safety Tracker\">
+      </div>
+    </div>
+    <div class='header-right'>
+      <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
+    </div>
+    <div class='header-stats'>
+      <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
+      <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
     </div>
   </div>
-  <div class='header-right'>
-    <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
-  </div>
-  <div class='header-stats'>
-    <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
-    <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
+  <div class='header-ticker-row'>
+    ", ranking_banner_html, "
   </div>
 </div>
 ")
@@ -2304,9 +2374,17 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 
 .dashboard-header {
-  background:#ffffff; height:var(--header-height); min-height:var(--header-height);
+  background:#ffffff;
+  display:flex; flex-direction:column;
+  border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
+}
+.header-top-row {
+  height:var(--header-height); min-height:var(--header-height);
   display:flex; align-items:center; justify-content:space-between; gap:24px;
-  padding:0 16px; border-bottom:1px solid #ddd; box-sizing:border-box; flex-shrink:0;
+  padding:0 16px; box-sizing:border-box;
+}
+.header-ticker-row {
+  padding:0 16px 8px 16px; box-sizing:border-box;
 }
 .header-main {
   display:flex; align-items:center; gap:20px; min-width:0; flex-wrap:wrap; flex-shrink:0;
@@ -2327,6 +2405,25 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 .header-stat-count { background:#B2182B; color:white; }
 .header-stat-days { background:#1a2b48; color:white; }
+
+.ranking-banner {
+  width:100%; box-sizing:border-box; overflow:hidden;
+  border-radius:6px; color:white; font-size:0.85em; font-weight:bold;
+}
+.ticker-wrap {
+  display:inline-block; white-space:nowrap; padding:6px 0;
+  animation: ticker 40s linear infinite;
+}
+.ticker-item { display:inline-block; padding:0 2rem; }
+.ticker-item span { font-weight:normal; opacity:0.9; }
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+#tickerWrap:hover { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  #tickerWrap { animation: none; }
+}
 
 .dashboard-layout {
   display:flex; flex-direction:row; align-items:stretch;
@@ -2354,7 +2451,8 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 
 @media (max-width: 900px) {
   .dashboard-page { height:auto; overflow:auto; max-width:100%; box-shadow:none; }
-  .dashboard-header {
+  .dashboard-header { height:auto; }
+  .header-top-row {
     display:flex; flex-wrap:wrap; height:auto; padding:10px 12px; gap:0;
     align-items:flex-start; justify-content:space-between;
   }
@@ -2370,6 +2468,8 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
     align-items:stretch; gap:6px; margin-top:6px; justify-content:flex-start;
   }
   .header-stat { width:100%; box-sizing:border-box; text-align:center; margin:0; }
+  .header-ticker-row { padding:0 12px 10px 12px; }
+  .ticker-item { padding:0 1rem; }
   .dashboard-layout { flex-direction:column; height:auto; }
   .dashboard-sidebar {
     width:100%; max-width:100%; height:auto; max-height:none;
