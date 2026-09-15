@@ -2495,7 +2495,10 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .sidebar-section { padding:12px 14px; margin-bottom:14px; font-size:14px; }
   .sidebar-scroll, .sidebar-scroll-small { max-height:110px; }
   .dashboard-map { width:100%; height:60vh; min-height:350px; order:1; }
-  .custom-legend-box { font-size:10px; padding:5px 7px; width:150px; max-width:150px; }
+  .custom-legend-box {
+    font-size:10px; line-height:1.45; padding:5px 7px; width:150px; max-width:150px;
+    max-height:260px; overflow-y:auto;
+  }
   .map-summary-box { font-size:11px; padding:5px 7px; width:110px; max-width:110px; }
   .summary-title { font-size:12px; }
   .summary-count { font-size:17px; }
@@ -2514,7 +2517,7 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
      than trying to position the toggle relative to a container that is
      itself pinned near the bottom of the map. */
   .dashboard-map .leaflet-bottom.leaflet-left {
-    top:205px; bottom:auto;
+    top:280px; bottom:auto;
   }
   .view-mode-box { max-width:150px; }
 }
