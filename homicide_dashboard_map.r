@@ -970,7 +970,7 @@ render_payload <- list(
 # =============================================================================
 
 map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl = FALSE, scrollWheelZoom = FALSE)) |>
-  addProviderTiles(providers$OpenStreetMap.Mapnik, options = providerTileOptions(attribution = "© OpenStreetMap")) |>
+  addProviderTiles(providers$OpenStreetMap.Mapnik, options = providerTileOptions(attribution = "\u00a9 OpenStreetMap")) |>
   addMapPane("wardsPane",     zIndex = 650) |>
   addMapPane("ccidPane",      zIndex = 680) |>
   addMapPane("heatmapPane",   zIndex = 685) |>
@@ -1447,42 +1447,45 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         return points;
       };
 
-      window.rebuildHeatLayer = function() {
-        if (window.currentHeatLayer) {
-          map.removeLayer(window.currentHeatLayer);
-          window.currentHeatLayer = null;
-        }
+      window.getOrBuildHeatLayer = function() {
+        if (window.currentHeatLayer) { return window.currentHeatLayer; }
+        if (typeof L.heatLayer === 'undefined') { return null; }
 
-        if (typeof L.heatLayer === 'undefined') { return; }
-
-        var points = window.getHeatPoints();
-        window.currentHeatLayer = L.heatLayer(points, {
+        window.currentHeatLayer = L.heatLayer([], {
           radius: 20,
           blur: 18,
           maxZoom: 16
         });
 
-        window.currentHeatLayer.addTo(map);
+        return window.currentHeatLayer;
+      };
 
-        window.enforcePaneOrder();
+      window.refreshHeatLayerData = function() {
+        if (!window.currentHeatLayer) { return; }
+        window.currentHeatLayer.setLatLngs(window.getHeatPoints());
       };
 
       window.refreshViewModeLayers = function() {
-        Object.keys(window.incidentLayersByYear).forEach(function(year) {
-          var layer = window.incidentLayersByYear[year];
-          if (window.viewMode === 'heatmap') {
-            if (map.hasLayer(layer)) { map.removeLayer(layer); }
-          }
-        });
-
         if (window.viewMode === 'heatmap') {
+          Object.keys(window.incidentLayersByYear).forEach(function(year) {
+            var layer = window.incidentLayersByYear[year];
+            if (map.hasLayer(layer)) { map.removeLayer(layer); }
+          });
+
           window.waitForHeatPlugin(function() {
-            window.rebuildHeatLayer();
+            var heatLayer = window.getOrBuildHeatLayer();
+            if (!heatLayer) { return; }
+
+            if (!map.hasLayer(heatLayer)) {
+              heatLayer.addTo(map);
+            }
+
+            window.refreshHeatLayerData();
+            window.enforcePaneOrder();
           });
         } else {
-          if (window.currentHeatLayer) {
+          if (window.currentHeatLayer && map.hasLayer(window.currentHeatLayer)) {
             map.removeLayer(window.currentHeatLayer);
-            window.currentHeatLayer = null;
           }
           window.refreshIncidentVisibility();
         }
@@ -2285,7 +2288,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.refreshFilterOptions();
       window.onAnyFilterChange();
     }
-    ",
+",
     data = render_payload
   )
 
