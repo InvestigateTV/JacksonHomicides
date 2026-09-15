@@ -1439,7 +1439,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
               checkedCircumstances.indexOf(p.circumstance) !== -1 &&
               window.isWithinSearchBuffer(latlng.lat, latlng.lng);
             if (matches) {
-              points.push([latlng.lat, latlng.lng, 0.5]);
+              points.push([latlng.lat, latlng.lng, 1.0]);
             }
           });
         });
@@ -1452,9 +1452,11 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (typeof L.heatLayer === 'undefined') { return null; }
 
         window.currentHeatLayer = L.heatLayer([], {
-          radius: 20,
-          blur: 18,
-          maxZoom: 16
+          radius: 32,
+          blur: 20,
+          maxZoom: 16,
+          max: 0.65,
+          minOpacity: 0.15
         });
 
         return window.currentHeatLayer;
