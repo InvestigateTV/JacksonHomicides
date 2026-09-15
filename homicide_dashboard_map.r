@@ -81,7 +81,7 @@ JacksonHomicides <- readxl::read_excel(homicide_data_path, sheet = "Homicides")
 # static number) and merged into the same ranked list.
 # ---------------------------------------------------------------------------
 
-ComparisonMetros <- readxl::read_excel(homicide_data_path, sheet = "Comparison_Metros")
+ComparisonMetros <- readxl::read_excel(homicide_data_path, sheet = "Metros")
 
 # ---------------------------------------------------------------------------
 # Clean UUID: the source workbook derives UUID via an Excel formula
