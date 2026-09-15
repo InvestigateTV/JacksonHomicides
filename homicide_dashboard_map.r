@@ -886,11 +886,30 @@ legend_html <- paste0("
 .summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:5px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 .view-mode-box {
-  background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
-  font-size:12px; line-height:1.6;
+  background:white; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:12px; line-height:1.6; display:flex; align-items:center; gap:8px;
 }
-.view-mode-box strong { font-weight:700; display:block; margin-bottom:4px; }
-.view-mode-box label { display:block; font-weight:normal; cursor:pointer; }
+.view-mode-label { font-weight:600; color:#333; user-select:none; }
+.view-mode-label.active { color:#111; }
+.view-mode-switch {
+  position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0;
+}
+.view-mode-switch input { opacity:0; width:0; height:0; }
+.view-mode-switch-track {
+  position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
+  background-color:#ccc; transition:.2s; border-radius:24px;
+}
+.view-mode-switch-track::before {
+  position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px;
+  background-color:white; transition:.2s; border-radius:50%;
+  box-shadow:0 1px 3px rgba(0,0,0,0.4);
+}
+.view-mode-switch input:checked + .view-mode-switch-track {
+  background-color:#2ecc71;
+}
+.view-mode-switch input:checked + .view-mode-switch-track::before {
+  transform:translateX(20px);
+}
 .leaflet-control.view-mode-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
@@ -968,9 +987,12 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
   addControl(
     html = "
 <div class='view-mode-box'>
-  <strong>Map View</strong>
-  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='points' checked> Points</label>
-  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='heatmap'> Heatmap</label>
+  <span class='view-mode-label active' id='view-mode-label-points'>Points</span>
+  <label class='view-mode-switch'>
+    <input type='checkbox' id='view-mode-switch-input'>
+    <span class='view-mode-switch-track'></span>
+  </label>
+  <span class='view-mode-label' id='view-mode-label-heatmap'>Heatmap</span>
 </div>
 ",
     position = "bottomleft",
@@ -1357,9 +1379,6 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
         if (map.getPane('heatmapPane'))   { map.getPane('heatmapPane').style.zIndex = 685; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
-        if (map.getPane('overlayPane')) {
-          map.getPane('overlayPane').style.zIndex = (window.viewMode === 'heatmap') ? 685 : 400;
-        }
       };
 
       window.viewMode = 'points';
@@ -1434,14 +1453,18 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
         var points = window.getHeatPoints();
         window.currentHeatLayer = L.heatLayer(points, {
-          pane: 'heatmapPane',
           radius: 20,
           blur: 18,
           maxZoom: 16
         });
-        window.currentHeatLayer.addTo(map);
 
-        window.enforcePaneOrder();
+        window.currentHeatLayer.on('add', function() {
+          if (window.currentHeatLayer._canvas) {
+            window.currentHeatLayer._canvas.style.zIndex = 685;
+          }
+        });
+
+        window.currentHeatLayer.addTo(map);
       };
 
       window.refreshViewModeLayers = function() {
@@ -1465,14 +1488,22 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         }
       };
 
-      document.querySelectorAll('.view-mode-toggle').forEach(function(radio) {
-        var wrap = radio.closest('.leaflet-control');
-        if (wrap) { L.DomEvent.disableClickPropagation(wrap); }
-        radio.addEventListener('change', function() {
-          window.viewMode = radio.value;
+      var viewModeSwitchInput = document.getElementById('view-mode-switch-input');
+      if (viewModeSwitchInput) {
+        var viewModeWrap = viewModeSwitchInput.closest('.leaflet-control');
+        if (viewModeWrap) { L.DomEvent.disableClickPropagation(viewModeWrap); }
+
+        viewModeSwitchInput.addEventListener('change', function() {
+          window.viewMode = viewModeSwitchInput.checked ? 'heatmap' : 'points';
+
+          var pointsLabel = document.getElementById('view-mode-label-points');
+          var heatmapLabel = document.getElementById('view-mode-label-heatmap');
+          if (pointsLabel)  { pointsLabel.classList.toggle('active', window.viewMode === 'points'); }
+          if (heatmapLabel) { heatmapLabel.classList.toggle('active', window.viewMode === 'heatmap'); }
+
           window.onAnyFilterChange();
         });
-      });
+      }
 
       /* =====================================================================
          TABS: Key Trends / Detailed Breakdowns / Victims
