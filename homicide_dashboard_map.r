@@ -1455,7 +1455,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           radius: 32,
           blur: 20,
           maxZoom: 16,
-          max: 0.65,
+          max: 0.45,
           minOpacity: 0.15
         });
 
