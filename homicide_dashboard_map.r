@@ -974,10 +974,19 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       map.attributionControl.setPrefix(false);
 
-      map.fitBounds([
-        [data.bbox.south, data.bbox.west],
-        [data.bbox.north, data.bbox.east]
-      ]);
+      window.fitToDefaultBounds = function() {
+        map.invalidateSize();
+        map.fitBounds([
+          [data.bbox.south, data.bbox.west],
+          [data.bbox.north, data.bbox.east]
+        ]);
+      };
+
+      window.fitToDefaultBounds();
+
+      setTimeout(function() {
+        window.fitToDefaultBounds();
+      }, 250);
 
       window.wardDataByYear = data.wards;
       window.incidentDataByYear = data.incidents;
@@ -1338,6 +1347,9 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (map.getPane('ccidPane'))      { map.getPane('ccidPane').style.zIndex = 680; }
         if (map.getPane('heatmapPane'))   { map.getPane('heatmapPane').style.zIndex = 685; }
         if (map.getPane('incidentsPane')) { map.getPane('incidentsPane').style.zIndex = 690; }
+        if (map.getPane('overlayPane')) {
+          map.getPane('overlayPane').style.zIndex = (window.viewMode === 'heatmap') ? 685 : 400;
+        }
       };
 
       window.viewMode = 'points';
@@ -1951,9 +1963,14 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.searchBufferLayer = null;
       window.searchMarker = null;
       window.initialMapView = null;
-      map.once('moveend', function() {
-        window.initialMapView = { center: map.getCenter(), zoom: map.getZoom() };
-      });
+      setTimeout(function() {
+        map.once('moveend', function() {
+          window.initialMapView = { center: map.getCenter(), zoom: map.getZoom() };
+        });
+        if (!map._animatingZoom) {
+          window.initialMapView = { center: map.getCenter(), zoom: map.getZoom() };
+        }
+      }, 300);
 
       window.isWithinBbox = function(lat, lng) {
         var b = data.bbox;
@@ -2076,10 +2093,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         if (window.initialMapView) {
           map.setView(window.initialMapView.center, window.initialMapView.zoom);
         } else {
-          map.fitBounds([
-            [data.bbox.south, data.bbox.west],
-            [data.bbox.north, data.bbox.east]
-          ]);
+          window.fitToDefaultBounds();
         }
         window.onAnyFilterChange();
       };
