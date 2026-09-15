@@ -906,7 +906,7 @@ charts_html <- "
         <table class='victims-table'>
           <thead>
             <tr>
-              <th>Name</th><th>Age</th><th>Date</th><th>Address</th><th>Status</th><th>Coverage</th>
+              <th>Name</th><th>Age</th><th>Date</th><th>Address</th><th>Status</th><th id='victims-coverage-header' style='display:none;'>Coverage</th>
             </tr>
           </thead>
           <tbody id='victims-table-body'></tbody>
@@ -2036,6 +2036,7 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       window.updateVictimsTable = function() {
         var tbody = document.getElementById('victims-table-body');
         var countLabel = document.getElementById('victims-count-label');
+        var coverageHeader = document.getElementById('victims-coverage-header');
         if (!tbody) { return; }
 
         var records = window.getFilteredVictimRecords();
@@ -2056,23 +2057,36 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
 
         if (countLabel) { countLabel.textContent = records.length + ' victim' + (records.length === 1 ? '' : 's') + ' shown'; }
 
+        /* Coverage column only appears once at least one currently-filtered
+           row actually has a link - most rows have a blank URL, and an
+           all-blank column just adds visual noise. The column (header +
+           cells) stays fully wired either way, so links appear automatically
+           the moment the underlying data has them, with no code change. */
+        var hasAnyCoverage = records.some(function(r) { return !!r.CoverageUrl; });
+        if (coverageHeader) { coverageHeader.style.display = hasAnyCoverage ? '' : 'none'; }
+        var colCount = hasAnyCoverage ? 6 : 5;
+
         if (records.length === 0) {
-          tbody.innerHTML = '<tr class=\"victims-empty-row\"><td colspan=\"6\">No victims match the current filters.</td></tr>';
+          tbody.innerHTML = '<tr class=\"victims-empty-row\"><td colspan=\"' + colCount + '\">No victims match the current filters.</td></tr>';
           return;
         }
 
         var rowsHtml = records.map(function(r) {
           var statusClass = r.CaseStatus === 'Solved' ? 'victims-status-solved' : 'victims-status-unsolved';
-          var coverageHtml = r.CoverageUrl
-            ? '<a class=\"victims-coverage-link\" href=\"' + window.escapeHtml(r.CoverageUrl) + '\" target=\"_blank\" rel=\"noopener\">Link</a>'
-            : '';
+          var coverageCellHtml = '';
+          if (hasAnyCoverage) {
+            var coverageLinkHtml = r.CoverageUrl
+              ? '<a class=\"victims-coverage-link\" href=\"' + window.escapeHtml(r.CoverageUrl) + '\" target=\"_blank\" rel=\"noopener\">Link</a>'
+              : '';
+            coverageCellHtml = '<td>' + coverageLinkHtml + '</td>';
+          }
           return '<tr>' +
             '<td>' + window.escapeHtml(r.Name) + '</td>' +
             '<td>' + window.escapeHtml(r.Age) + '</td>' +
             '<td>' + window.escapeHtml(r.Date) + '</td>' +
             '<td>' + window.escapeHtml(r.Address) + '</td>' +
             '<td class=\"' + statusClass + '\">' + window.escapeHtml(r.CaseStatus) + '</td>' +
-            '<td>' + coverageHtml + '</td>' +
+            coverageCellHtml +
             '</tr>';
         }).join('');
 
