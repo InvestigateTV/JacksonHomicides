@@ -2468,15 +2468,15 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .dashboard-header { height:auto; }
   .header-top-row {
     display:flex; flex-wrap:wrap; height:auto; padding:10px 12px; gap:0;
-    align-items:flex-start; justify-content:space-between;
+    align-items:center; justify-content:space-between;
   }
-  .header-main { flex-wrap:wrap; gap:8px; order:1; flex-basis:70%; }
-  .header-title { order:1; }
+  .header-main { flex-wrap:wrap; gap:8px; order:1; flex-basis:70%; align-items:center; }
+  .header-title { order:1; display:flex; align-items:center; }
   .header-title-main { font-size:16px; }
   .header-title-sub { font-size:10px; }
-  .header-title-image { height:34px; }
-  .header-right { order:2; flex-basis:25%; justify-content:flex-end; margin-left:0; }
-  .header-logo { height:28px; }
+  .header-title-image { height:34px; display:block; }
+  .header-right { order:2; flex-basis:25%; justify-content:flex-end; margin-left:0; align-items:center; }
+  .header-logo { height:28px; display:block; }
   .header-stats {
     order:3; flex-basis:100%; width:100%; display:flex; flex-direction:column;
     align-items:stretch; gap:6px; margin-top:6px; justify-content:flex-start;
@@ -2507,6 +2507,14 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
     top:auto; bottom:8px; left:50%; transform:translateX(-50%);
   }
   .yoy-status-box { font-size:11px; padding:5px 10px; white-space:normal; max-width:80vw; }
+  /* On mobile the bottom-left toggle collides with the "Showing change..."
+     banner (which moves to the bottom on small screens). Detach it from
+     Leaflet's bottom-left corner stack and place it just under the legend
+     box in the top-left corner instead. */
+  .leaflet-bottom.leaflet-left .view-mode-wrap {
+    position:absolute; top:205px; left:10px; bottom:auto;
+  }
+  .view-mode-box { max-width:150px; }
 }
 .sidebar-section {
   background:white; padding:10px 12px; margin-bottom:10px; border-radius:4px;
