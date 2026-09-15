@@ -797,16 +797,16 @@ header_html <- paste0("
         <img src='visuals/HomicideTrackerTitle.png' class='header-title-image' alt=\"Jackson's Homicides: A Public Safety Tracker\">
       </div>
     </div>
-    <div class='header-right'>
-      <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
-    </div>
     <div class='header-stats'>
       <div class='header-stat header-stat-count'>", CURRENT_YEAR, " Count: ", citywide_ytd_current, "</div>
       <div class='header-stat header-stat-days'>", days_since_last_homicide, " Days Since Last Homicide</div>
     </div>
-  </div>
-  <div class='header-ticker-row'>
-    ", ranking_banner_html, "
+    <div class='header-ticker-slot'>
+      ", ranking_banner_html, "
+    </div>
+    <div class='header-right'>
+      <img src='visuals/wlbtinv.png' class='header-logo' alt='WLBT3 Investigates'>
+    </div>
   </div>
 </div>
 ")
@@ -2380,11 +2380,11 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 .header-top-row {
   height:var(--header-height); min-height:var(--header-height);
-  display:flex; align-items:center; justify-content:space-between; gap:24px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:0 16px; box-sizing:border-box;
 }
-.header-ticker-row {
-  padding:0 16px 8px 16px; box-sizing:border-box;
+.header-ticker-slot {
+  flex-grow:1; min-width:0; max-width:600px;
 }
 .header-main {
   display:flex; align-items:center; gap:20px; min-width:0; flex-wrap:wrap; flex-shrink:0;
@@ -2468,7 +2468,10 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
     align-items:stretch; gap:6px; margin-top:6px; justify-content:flex-start;
   }
   .header-stat { width:100%; box-sizing:border-box; text-align:center; margin:0; }
-  .header-ticker-row { padding:0 12px 10px 12px; }
+  .header-ticker-slot {
+    order:4; flex-basis:100%; max-width:100%; width:100%;
+    margin-top:6px; padding:0;
+  }
   .ticker-item { padding:0 1rem; }
   .dashboard-layout { flex-direction:column; height:auto; }
   .dashboard-sidebar {
