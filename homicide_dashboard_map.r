@@ -558,14 +558,6 @@ year_control_html <- paste0("
 </div>
 ")
 
-view_mode_control_html <- "
-<div class='sidebar-section'>
-  <strong>Map View</strong><br/>
-  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='points' checked> Points</label>
-  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='heatmap'> Heatmap</label>
-</div>
-"
-
 # =============================================================================
 # Incident summary records (all incidents, including non-geocoded)
 # =============================================================================
@@ -893,6 +885,13 @@ legend_html <- paste0("
 .summary-detail-row { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
 .summary-marker-note { font-style:italic; font-size:10px; color:#666; text-align:center; margin-top:5px; }
 .leaflet-control.map-summary-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
+.view-mode-box {
+  background:white; padding:6px 8px; box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  font-size:12px; line-height:1.6;
+}
+.view-mode-box strong { font-weight:700; display:block; margin-bottom:4px; }
+.view-mode-box label { display:block; font-weight:normal; cursor:pointer; }
+.leaflet-control.view-mode-wrap { background: transparent !important; box-shadow: none !important; border: none !important; }
 </style>
 <div class='custom-legend-box'>
   <strong>Legend</strong><br/>
@@ -965,6 +964,17 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
     html = "<div id='map-summary' class='map-summary-box'>Loading summary...</div>",
     position = "topright",
     className = "map-summary-wrap"
+  ) |>
+  addControl(
+    html = "
+<div class='view-mode-box'>
+  <strong>Map View</strong>
+  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='points' checked> Points</label>
+  <label><input type='radio' name='view-mode' class='view-mode-toggle' value='heatmap'> Heatmap</label>
+</div>
+",
+    position = "bottomleft",
+    className = "view-mode-wrap"
   ) |>
   htmlwidgets::onRender(
     "
@@ -1430,6 +1440,8 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
           maxZoom: 16
         });
         window.currentHeatLayer.addTo(map);
+
+        window.enforcePaneOrder();
       };
 
       window.refreshViewModeLayers = function() {
@@ -1454,6 +1466,8 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
       };
 
       document.querySelectorAll('.view-mode-toggle').forEach(function(radio) {
+        var wrap = radio.closest('.leaflet-control');
+        if (wrap) { L.DomEvent.disableClickPropagation(wrap); }
         radio.addEventListener('change', function() {
           window.viewMode = radio.value;
           window.onAnyFilterChange();
@@ -2509,7 +2523,6 @@ sidebar_html <- htmltools::tags$div(
   class = "dashboard-sidebar",
   htmltools::HTML(search_control_html),
   htmltools::HTML(year_control_html),
-  htmltools::HTML(view_mode_control_html),
   htmltools::HTML(agency_control_html),
   htmltools::HTML(circumstance_control_html),
   htmltools::tags$hr(class = "sidebar-section-divider"),
