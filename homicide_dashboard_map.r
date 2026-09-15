@@ -2384,14 +2384,14 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   padding:0 16px; box-sizing:border-box;
 }
 .header-ticker-slot {
-  flex-grow:1; min-width:0; max-width:600px;
+  flex-grow:1; min-width:0; max-width:600px; order:3;
 }
 .header-main {
   display:flex; align-items:center; gap:20px; min-width:0; flex-wrap:wrap; flex-shrink:0;
   order:1;
 }
 .header-title { flex-shrink:0; }
-.header-right { display:flex; align-items:center; flex-shrink:0; order:3; margin-left:auto; }
+.header-right { display:flex; align-items:center; flex-shrink:0; order:4; margin-left:auto; }
 .header-logo { height:40px; width:auto; }
 .header-title-image { height:44px; width:auto; display:block; }
 .header-title-main { font-weight:bold; font-size:22px; line-height:1.1; white-space:nowrap; }
