@@ -2507,10 +2507,10 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
     top:auto; bottom:8px; left:50%; transform:translateX(-50%);
   }
   .yoy-status-box { font-size:11px; padding:5px 10px; white-space:normal; max-width:80vw; }
-  /* On mobile the bottom-left toggle collides with the "Showing change..."
+  /* On mobile the bottom-left toggle collides with the Showing-change
      banner (which moves to the bottom on small screens). Detach it from
-     Leaflet's bottom-left corner stack and place it just under the legend
-     box in the top-left corner instead. */
+     the bottom-left corner stack and place it just under the legend box
+     in the top-left corner instead. */
   .leaflet-bottom.leaflet-left .view-mode-wrap {
     position:absolute; top:205px; left:10px; bottom:auto;
   }
