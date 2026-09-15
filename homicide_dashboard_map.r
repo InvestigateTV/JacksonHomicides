@@ -2506,13 +2506,15 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
   .dashboard-map-yoy-status {
     top:auto; bottom:8px; left:50%; transform:translateX(-50%);
   }
-  .yoy-status-box { font-size:11px; padding:5px 10px; white-space:normal; max-width:80vw; }
+  .yoy-status-box { font-size:11px; padding:5px 10px; white-space:normal; max-width:80vw; text-align:center; }
   /* On mobile the bottom-left toggle collides with the Showing-change
-     banner (which moves to the bottom on small screens). Detach it from
-     the bottom-left corner stack and place it just under the legend box
-     in the top-left corner instead. */
-  .leaflet-bottom.leaflet-left .view-mode-wrap {
-    position:absolute; top:205px; left:10px; bottom:auto;
+     banner (which moves to the bottom on small screens). Reposition
+     Leaflet's own bottom-left corner container (which the toggle lives in)
+     so it anchors near the top instead, just under the legend box, rather
+     than trying to position the toggle relative to a container that is
+     itself pinned near the bottom of the map. */
+  .dashboard-map .leaflet-bottom.leaflet-left {
+    top:205px; bottom:auto;
   }
   .view-mode-box { max-width:150px; }
 }
