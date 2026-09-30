@@ -837,6 +837,59 @@ search_control_html <- "
 # Charts/Tabs HTML (Key Trends / Detailed Breakdowns / Victims, below the map)
 # =============================================================================
 
+footer_html <- "
+<div class='dashboard-footer'>
+  <p><a href='#' id='open-about-modal'>About the Data</a></p>
+  <p>Data Sources: JPD, DPS, Hinds County, JSUPD | Visualization by C.J. LeMaster and Emily Featherston</p>
+  <p>You can submit a story tip to 3 On Your Side <a href='https://www.wlbt.com/about-us/contact-us/' target='_blank' rel='noopener'>here</a>.</p>
+</div>
+"
+
+about_data_modal_html <- "
+<div id='about-data-modal-overlay' class='modal-overlay'>
+  <div class='modal-content'>
+    <span class='modal-close' id='about-data-modal-close'>&times;</span>
+    <h2>Our Methodology</h2>
+    <p><strong>Homicide</strong> refers to one person killing another, regardless of intent. Unlike <strong>murder</strong>, which implies intent, some homicides, such as <strong>justified or officer-involved deaths</strong>, are not crimes. That's why the number of homicides is typically higher than murders.</p>
+    <p><strong>WLBT uses the same criteria as the Jackson Police Department:</strong> We count all homicides, including justified ones, but exclude most vehicular homicides unless officially classified as such. Our numbers come from <strong>JPD releases</strong>, <strong>confirmations from police and the coroner</strong> and <strong>reports from other lead agencies</strong> when killings occur within Jackson city limits.</p>
+    <p><strong>Because we count all homicides that happen in Jackson</strong> (not just those investigated by JPD), our totals may differ from those reported by individual agencies. For example, <strong>Capitol Police and Jackson State University Police</strong> have led several homicide investigations in recent years.</p>
+    <p><strong>Date from previous years may be updated</strong> as new cases surface. In 2023, we discovered JPD had not disclosed 24 homicide cases, prompting a correction in our reporting. Since then, <strong>we regularly request updates</strong> to prevent similar omissions.</p>
+    <p>Details such as <strong>age, race, or exact location</strong> may be missing due to gaps in law enforcement reporting. However, <strong>we work to verify and include as much information as possible</strong> to help the public and investigators.</p>
+  </div>
+</div>
+"
+
+tip_modal_html <- "
+<div id='tip-modal-overlay' class='modal-overlay'>
+  <div class='modal-content'>
+    <span class='modal-close' id='tip-modal-close'>&times;</span>
+    <h2>Submit a Tip</h2>
+    <p class='emergency'>If this is an emergency or you are witnessing a crime in progress, please call 911 immediately.</p>
+    <p>Your information could be crucial to solving a case. You can report tips through the following channels:</p>
+    <ul>
+      <li>
+        <strong>Jackson Police Department:</strong><br/>
+        Call <a href='tel:601-960-1234'>601-960-1234</a> to speak with an officer directly.
+      </li>
+      <li>
+        <strong>Capitol Police:</strong><br/>
+        Call their dispatch at <a href='tel:601-359-3125'>601-359-3125</a>.
+      </li>
+      <li>
+        <strong>Crime Stoppers (Anonymous):</strong><br/>
+        Call <a href='tel:601-355-8477'>601-355-TIPS (8477)</a> or submit a tip online through <a href='https://www.p3tips.com/TipForm.aspx?ID=116&C=&T=' target='_blank' rel='noopener'>P3 Tips</a>. You may be eligible for a cash reward.
+      </li>
+    </ul>
+  </div>
+</div>
+"
+
+tip_button_html <- "
+<button class='tip-button-floating' id='open-tip-modal' title='Submit a Tip' aria-label='Submit a Tip'>
+  <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'></path></svg>
+</button>
+"
+
 clearance_modal_html <- "
 <div id='clearance-modal-overlay' class='modal-overlay'>
   <div class='modal-content'>
@@ -2310,6 +2363,41 @@ map <- leaflet(options = leafletOptions(minZoom = 9, maxZoom = 16, zoomControl =
         });
       }
 
+      var aboutDataLink = document.getElementById('open-about-modal');
+      var aboutDataModalOverlay = document.getElementById('about-data-modal-overlay');
+      var aboutDataModalClose = document.getElementById('about-data-modal-close');
+      if (aboutDataLink && aboutDataModalOverlay && aboutDataModalClose) {
+        aboutDataLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          aboutDataModalOverlay.classList.add('modal-overlay-active');
+        });
+        aboutDataModalClose.addEventListener('click', function() {
+          aboutDataModalOverlay.classList.remove('modal-overlay-active');
+        });
+        aboutDataModalOverlay.addEventListener('click', function(e) {
+          if (e.target === aboutDataModalOverlay) {
+            aboutDataModalOverlay.classList.remove('modal-overlay-active');
+          }
+        });
+      }
+
+      var tipButton = document.getElementById('open-tip-modal');
+      var tipModalOverlay = document.getElementById('tip-modal-overlay');
+      var tipModalClose = document.getElementById('tip-modal-close');
+      if (tipButton && tipModalOverlay && tipModalClose) {
+        tipButton.addEventListener('click', function() {
+          tipModalOverlay.classList.add('modal-overlay-active');
+        });
+        tipModalClose.addEventListener('click', function() {
+          tipModalOverlay.classList.remove('modal-overlay-active');
+        });
+        tipModalOverlay.addEventListener('click', function(e) {
+          if (e.target === tipModalOverlay) {
+            tipModalOverlay.classList.remove('modal-overlay-active');
+          }
+        });
+      }
+
       window.chartJsCallbacks = [];
       window.chartJsReady = false;
 
@@ -2621,6 +2709,33 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 }
 .modal-close:hover { color:#333; }
 
+.modal-content .emergency {
+  color:#B2182B; font-weight:bold; text-align:center;
+  border:1px solid #B2182B; padding:10px; border-radius:5px; margin-bottom:15px;
+}
+.modal-content ul { list-style:none; padding:0; }
+.modal-content li { margin-bottom:15px; }
+.modal-content a { color:#2c7be5; text-decoration:none; font-weight:bold; }
+.modal-content a:hover { text-decoration:underline; }
+
+.dashboard-footer {
+  padding:8px 15px; text-align:center; font-size:0.75em; color:#6c757d;
+  background:#f8f9fa; border-top:1px solid #ddd;
+}
+.dashboard-footer p { margin:3px 0; }
+.dashboard-footer a { color:#2c7be5; text-decoration:none; }
+.dashboard-footer a:hover { text-decoration:underline; }
+
+.tip-button-floating {
+  position:fixed; bottom:20px; right:20px; width:60px; height:60px;
+  background:#2c7be5; color:white; border-radius:50%; border:none;
+  box-shadow:0 4px 8px rgba(0,0,0,0.2); cursor:pointer;
+  display:flex; justify-content:center; align-items:center;
+  z-index:2001; transition:background-color 0.3s ease, transform 0.2s ease;
+}
+.tip-button-floating:hover { background:#1a68d1; transform:scale(1.05); }
+.tip-button-floating svg { width:28px; height:28px; }
+
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
 }
@@ -2727,8 +2842,12 @@ page <- htmltools::tagList(
       )
     ),
     htmltools::HTML(charts_html),
-    htmltools::HTML(clearance_modal_html)
-  )
+    htmltools::HTML(footer_html),
+    htmltools::HTML(clearance_modal_html),
+    htmltools::HTML(about_data_modal_html),
+    htmltools::HTML(tip_modal_html)
+  ),
+  htmltools::HTML(tip_button_html)
 )
 
 dir.create("docs", showWarnings = FALSE)
