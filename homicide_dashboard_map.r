@@ -841,7 +841,6 @@ footer_html <- "
 <div class='dashboard-footer'>
   <p><a href='#' id='open-about-modal'>About the Data</a></p>
   <p>Data Sources: JPD, DPS, Hinds County, JSUPD | Visualization by C.J. LeMaster and Emily Featherston</p>
-  <p>You can submit a story tip to 3 On Your Side <a href='https://www.wlbt.com/about-us/contact-us/' target='_blank' rel='noopener'>here</a>.</p>
 </div>
 "
 
@@ -880,13 +879,14 @@ tip_modal_html <- "
         Call <a href='tel:601-355-8477'>601-355-TIPS (8477)</a> or submit a tip online through <a href='https://www.p3tips.com/TipForm.aspx?ID=116&C=&T=' target='_blank' rel='noopener'>P3 Tips</a>. You may be eligible for a cash reward.
       </li>
     </ul>
+    <p>You can submit a story tip to 3 On Your Side <a href='https://www.wlbt.com/about-us/contact-us/' target='_blank' rel='noopener'>here</a>.</p>
   </div>
 </div>
 "
 
 tip_button_html <- "
 <button class='tip-button-floating' id='open-tip-modal' title='Submit a Tip' aria-label='Submit a Tip'>
-  <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'></path></svg>
+  Submit a Tip
 </button>
 "
 
@@ -2727,14 +2727,14 @@ body { margin:0; padding:0; font-family: 'Inter', 'Helvetica Neue', Arial, sans-
 .dashboard-footer a:hover { text-decoration:underline; }
 
 .tip-button-floating {
-  position:fixed; bottom:20px; right:20px; width:60px; height:60px;
-  background:#2c7be5; color:white; border-radius:50%; border:none;
-  box-shadow:0 4px 8px rgba(0,0,0,0.2); cursor:pointer;
-  display:flex; justify-content:center; align-items:center;
-  z-index:2001; transition:background-color 0.3s ease, transform 0.2s ease;
+  position:fixed; bottom:20px; right:20px;
+  background:#B2182B; color:white; border-radius:6px; border:none;
+  padding:12px 20px; font-size:14px; font-weight:bold;
+  font-family:'Inter', 'Helvetica Neue', Arial, sans-serif;
+  box-shadow:0 2px 6px rgba(0,0,0,0.25); cursor:pointer;
+  z-index:2001; transition:background-color 0.2s ease;
 }
-.tip-button-floating:hover { background:#1a68d1; transform:scale(1.05); }
-.tip-button-floating svg { width:28px; height:28px; }
+.tip-button-floating:hover { background:#8f1421; }
 
 .dashboard-charts {
   padding:16px; background:white; border-top:1px solid #ddd;
